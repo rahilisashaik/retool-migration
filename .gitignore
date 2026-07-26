@@ -43,6 +43,7 @@ next-env.d.ts
 # Prisma
 prisma/migrations
 prisma/dev.db
+prisma/seed.ts
 
 # Config
 .devin/config.local.json
