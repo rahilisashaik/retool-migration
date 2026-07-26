@@ -4,11 +4,12 @@ interface CardProps {
   children: React.ReactNode
   className?: string
   hover?: boolean
+  padding?: boolean
 }
 
-export const Card: React.FC<CardProps> = ({ children, className = '', hover = false }) => {
+export const Card: React.FC<CardProps> = ({ children, className = '', hover = false, padding = true }) => {
   return (
-    <div className={`bg-brand-darker rounded-xl border border-brand-green/10 shadow-lg ${hover ? 'hover:border-brand-green/30 hover:shadow-xl transition-all duration-200' : ''} ${className}`}>
+    <div className={`bg-brand-darker rounded-xl border border-brand-green/10 shadow-lg ${padding ? 'p-6' : ''} ${hover ? 'hover:border-brand-green/30 hover:shadow-xl transition-all duration-200' : ''} ${className}`}>
       {children}
     </div>
   )

@@ -33,9 +33,9 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Invalid credentials')
         }
 
-        // For demo: accept any password for seeded users
+        // For demo: simple password check
         // In production: use bcrypt.compare(credentials.password, user.password)
-        const isPasswordValid = true // await bcrypt.compare(credentials.password, user.password)
+        const isPasswordValid = credentials.password === user.password
 
         if (!isPasswordValid) {
           throw new Error('Invalid credentials')
