@@ -1,28 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { kycCaseFilterSchema, handleValidationError } from '@/lib/validations'
-import { requireAuth, checkPermission } from '@/lib/auth-helper'
 import { PERMISSIONS } from '@/lib/permissions'
-import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { kycService } from '@/lib/services/kyc.service'
 
 // GET /api/kyc - List KYC cases with filters
 export async function GET(request: NextRequest) {
   try {
-    // Apply rate limiting
-    const rateLimitResponse = await applyRateLimit(request, 'READ')
-    if (rateLimitResponse) return rateLimitResponse
+    // Apply authentication and authorization
+    await kycService.requireAuthAndPermission(PERMISSIONS.KYC_READ)
 
-    // Check authentication
-    const user = await requireAuth()
-    
-    // Check KYC read permission
-    const hasReadAccess = await checkPermission(PERMISSIONS.KYC_READ)
-    if (!hasReadAccess) {
-      return NextResponse.json(
-        { error: 'Permission denied' },
-        { status: 403 }
-      )
-    }
+    // Apply rate limiting
+    const rateLimitResponse = await kycService.applyRateLimit(request, 'READ')
+    if (rateLimitResponse) return rateLimitResponse
 
     const { searchParams } = new URL(request.url)
     
@@ -35,58 +24,14 @@ export async function GET(request: NextRequest) {
       toDate: searchParams.get('toDate') || undefined,
     })
 
-    const where: any = {}
-    
-    if (filters.status) where.status = filters.status
-    if (filters.minRiskScore !== undefined || filters.maxRiskScore !== undefined) {
-      where.riskScore = {}
-      if (filters.minRiskScore !== undefined) where.riskScore.gte = filters.minRiskScore
-      if (filters.maxRiskScore !== undefined) where.riskScore.lte = filters.maxRiskScore
-    }
-    if (filters.assigneeId) where.reviewerId = filters.assigneeId
-    if (filters.fromDate || filters.toDate) {
-      where.submittedAt = {}
-      if (filters.fromDate) where.submittedAt.gte = new Date(filters.fromDate)
-      if (filters.toDate) where.submittedAt.lte = new Date(filters.toDate)
-    }
-
-    const cases = await prisma.kycCase.findMany({
-      where,
-      include: {
-        reviewer: {
-          select: { id: true, name: true, email: true },
-        },
-        notes: {
-          include: {
-            author: {
-              select: { id: true, name: true, email: true },
-            },
-          },
-          orderBy: { createdAt: 'desc' },
-        },
-        linkedRefunds: true,
-      },
-      orderBy: { submittedAt: 'desc' },
+    const result = await kycService.getKycCases({
+      ...filters,
+      page: 1,
+      limit: 50,
     })
 
-    return NextResponse.json({ cases })
+    return NextResponse.json({ cases: result.data, total: result.total })
   } catch (error: any) {
-    console.error('Error fetching KYC cases:', error)
-    
-    // Handle validation errors
-    const validationError = handleValidationError(error)
-    if (validationError) return validationError
-    
-    if (error.message === 'Unauthorized') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-    
-    return NextResponse.json(
-      { error: 'Failed to fetch KYC cases' },
-      { status: 500 }
-    )
+    return kycService.handleError(error)
   }
 }

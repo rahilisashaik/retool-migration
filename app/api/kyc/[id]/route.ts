@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { requireAuth, checkPermission } from '@/lib/auth-helper'
 import { PERMISSIONS } from '@/lib/permissions'
-import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { kycService } from '@/lib/services/kyc.service'
 
 // GET /api/kyc/[id] - Get a specific KYC case
 export async function GET(
@@ -10,61 +8,17 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Apply authentication and authorization
+    await kycService.requireAuthAndPermission(PERMISSIONS.KYC_READ)
+
     // Apply rate limiting
-    const rateLimitResponse = await applyRateLimit(request, 'READ')
+    const rateLimitResponse = await kycService.applyRateLimit(request, 'READ')
     if (rateLimitResponse) return rateLimitResponse
 
-    // Check authentication
-    const user = await requireAuth()
-    
-    // Check KYC read permission
-    const hasReadAccess = await checkPermission(PERMISSIONS.KYC_READ)
-    if (!hasReadAccess) {
-      return NextResponse.json(
-        { error: 'Permission denied' },
-        { status: 403 }
-      )
-    }
-
-    const kycCase = await prisma.kycCase.findUnique({
-      where: { id: params.id },
-      include: {
-        reviewer: {
-          select: { id: true, name: true, email: true },
-        },
-        notes: {
-          include: {
-            author: {
-              select: { id: true, name: true, email: true },
-            },
-          },
-          orderBy: { createdAt: 'desc' },
-        },
-        linkedRefunds: true,
-      },
-    })
-
-    if (!kycCase) {
-      return NextResponse.json(
-        { error: 'KYC case not found' },
-        { status: 404 }
-      )
-    }
+    const kycCase = await kycService.getKycCaseById(params.id)
 
     return NextResponse.json({ case: kycCase })
   } catch (error: any) {
-    console.error('Error fetching KYC case:', error)
-    
-    if (error.message === 'Unauthorized') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-    
-    return NextResponse.json(
-      { error: 'Failed to fetch KYC case' },
-      { status: 500 }
-    )
+    return kycService.handleError(error)
   }
 }

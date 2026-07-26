@@ -1,29 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { refundFilterSchema, handleValidationError } from '@/lib/validations'
-import { requireAuth, checkPermission } from '@/lib/auth-helper'
 import { PERMISSIONS } from '@/lib/permissions'
-import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
-import { Decimal } from '@prisma/client/runtime/library'
+import { refundService } from '@/lib/services/refund.service'
 
 // GET /api/refunds - List refund requests with filters
 export async function GET(request: NextRequest) {
   try {
-    // Apply rate limiting
-    const rateLimitResponse = await applyRateLimit(request, 'READ')
-    if (rateLimitResponse) return rateLimitResponse
+    // Apply authentication and authorization
+    await refundService.requireAuthAndPermission(PERMISSIONS.REFUND_READ)
 
-    // Check authentication
-    const user = await requireAuth()
-    
-    // Check refund read permission
-    const hasReadAccess = await checkPermission(PERMISSIONS.REFUND_READ)
-    if (!hasReadAccess) {
-      return NextResponse.json(
-        { error: 'Permission denied' },
-        { status: 403 }
-      )
-    }
+    // Apply rate limiting
+    const rateLimitResponse = await refundService.applyRateLimit(request, 'READ')
+    if (rateLimitResponse) return rateLimitResponse
 
     const { searchParams } = new URL(request.url)
     
@@ -31,76 +19,21 @@ export async function GET(request: NextRequest) {
       orderId: searchParams.get('orderId') || undefined,
       customerId: searchParams.get('customerId') || undefined,
       status: searchParams.get('status') || undefined,
-      minAmount: searchParams.get('minAmount') ? new Decimal(searchParams.get('minAmount')!) : undefined,
-      maxAmount: searchParams.get('maxAmount') ? new Decimal(searchParams.get('maxAmount')!) : undefined,
+      minAmount: searchParams.get('minAmount') ? Number(searchParams.get('minAmount')) : undefined,
+      maxAmount: searchParams.get('maxAmount') ? Number(searchParams.get('maxAmount')) : undefined,
       currency: searchParams.get('currency') || undefined,
       fromDate: searchParams.get('fromDate') || undefined,
       toDate: searchParams.get('toDate') || undefined,
     })
 
-    const where: any = {}
-    
-    if (filters.orderId) where.orderId = filters.orderId
-    if (filters.customerId) where.customerId = filters.customerId
-    if (filters.status) where.status = filters.status
-    if (filters.minAmount !== undefined || filters.maxAmount !== undefined) {
-      where.amount = {}
-      if (filters.minAmount !== undefined) where.amount.gte = filters.minAmount
-      if (filters.maxAmount !== undefined) where.amount.lte = filters.maxAmount
-    }
-    if (filters.currency) where.currency = filters.currency
-    if (filters.fromDate || filters.toDate) {
-      where.createdAt = {}
-      if (filters.fromDate) where.createdAt.gte = new Date(filters.fromDate)
-      if (filters.toDate) where.createdAt.lte = new Date(filters.toDate)
-    }
-
-    const refunds = await prisma.refundRequest.findMany({
-      where,
-      include: {
-        kycCase: {
-          select: {
-            id: true,
-            status: true,
-            riskScore: true,
-          },
-        },
-        notes: {
-          include: {
-            author: {
-              select: { id: true, name: true, email: true },
-            },
-          },
-          orderBy: { createdAt: 'desc' },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
+    const result = await refundService.getRefundRequests({
+      ...filters,
+      page: 1,
+      limit: 50,
     })
 
-    // Convert Decimal to number for JSON serialization
-    const serializedRefunds = refunds.map(refund => ({
-      ...refund,
-      amount: Number(refund.amount),
-    }))
-
-    return NextResponse.json({ refunds: serializedRefunds })
+    return NextResponse.json({ refunds: result.data, total: result.total })
   } catch (error: any) {
-    console.error('Error fetching refund requests:', error)
-    
-    // Handle validation errors
-    const validationError = handleValidationError(error)
-    if (validationError) return validationError
-    
-    if (error.message === 'Unauthorized') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-    
-    return NextResponse.json(
-      { error: 'Failed to fetch refund requests' },
-      { status: 500 }
-    )
+    return refundService.handleError(error)
   }
 }

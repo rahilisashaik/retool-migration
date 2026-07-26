@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { refundLinkKycSchema, handleValidationError } from '@/lib/validations'
-import { requireAuth, requirePermissionCheck } from '@/lib/auth-helper'
 import { PERMISSIONS } from '@/lib/permissions'
-import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { refundService } from '@/lib/services/refund.service'
 
 // POST /api/refunds/[id]/link-kyc - Link refund to KYC case
 export async function POST(
@@ -11,97 +9,20 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Apply rate limiting
-    const rateLimitResponse = await applyRateLimit(request, 'MUTATION')
-    if (rateLimitResponse) return rateLimitResponse
+    // Apply authentication and authorization
+    const user = await refundService.requireAuthAndPermission(PERMISSIONS.REFUND_WRITE)
 
-    // Check authentication and permissions
-    const user = await requirePermissionCheck(PERMISSIONS.REFUND_WRITE)
+    // Apply rate limiting
+    const rateLimitResponse = await refundService.applyRateLimit(request, 'MUTATION')
+    if (rateLimitResponse) return rateLimitResponse
 
     const body = await request.json()
     const { kycCaseId } = refundLinkKycSchema.parse(body)
 
-    // Verify refund exists
-    const refund = await prisma.refundRequest.findUnique({
-      where: { id: params.id },
-    })
+    const updatedRefund = await refundService.linkRefundToKyc(params.id, kycCaseId, user.id)
 
-    if (!refund) {
-      return NextResponse.json(
-        { error: 'Refund request not found' },
-        { status: 404 }
-      )
-    }
-
-    // Verify KYC case exists
-    const kycCase = await prisma.kycCase.findUnique({
-      where: { id: kycCaseId },
-    })
-
-    if (!kycCase) {
-      return NextResponse.json(
-        { error: 'KYC case not found' },
-        { status: 404 }
-      )
-    }
-
-    // Link refund to KYC case and create audit event in transaction
-    const result = await prisma.$transaction(async (tx) => {
-      const updatedRefund = await tx.refundRequest.update({
-        where: { id: params.id },
-        data: {
-          kycCaseId,
-        },
-        include: {
-          kycCase: {
-            select: {
-              id: true,
-              status: true,
-              riskScore: true,
-            },
-          },
-        },
-      })
-
-      // Create audit event
-      await tx.auditEvent.create({
-        data: {
-          actorId: user.id,
-          action: 'REFUND_LINKED_KYC',
-          resourceType: 'RefundRequest',
-          resourceId: params.id,
-          metadata: JSON.stringify({ kycCaseId }),
-        },
-      })
-
-      return updatedRefund
-    })
-
-    return NextResponse.json({ refund: result })
+    return NextResponse.json({ refund: updatedRefund })
   } catch (error: any) {
-    console.error('Error linking refund to KYC case:', error)
-    
-    // Handle validation errors
-    const validationError = handleValidationError(error)
-    if (validationError) return validationError
-    
-    if (error.message === 'Unauthorized') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-    
-    if (error.message.includes('Permission denied')) {
-      return NextResponse.json(
-        { error: 'Permission denied' },
-        { status: 403 }
-      )
-    }
-    
-    return NextResponse.json(
-      { error: 'Failed to link refund to KYC case' },
-      { status: 500 }
-    )
+    return refundService.handleError(error)
   }
 }
