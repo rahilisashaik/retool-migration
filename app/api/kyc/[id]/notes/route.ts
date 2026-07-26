@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { kycNoteSchema } from '@/lib/validations'
+import { requireAuth, requirePermissionCheck } from '@/lib/auth-helper'
+import { PERMISSIONS } from '@/lib/permissions'
 
 // POST /api/kyc/[id]/notes - Add a note to a KYC case
 export async function POST(
@@ -8,6 +10,9 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Check authentication and permissions
+    const user = await requirePermissionCheck(PERMISSIONS.KYC_WRITE)
+
     const body = await request.json()
     const { body: noteBody } = kycNoteSchema.parse(body)
 
@@ -23,16 +28,11 @@ export async function POST(
       )
     }
 
-    // Get admin user for audit event (would normally be from auth session)
-    const adminUser = await prisma.user.findFirst({
-      where: { role: 'ADMIN' },
-    })
-    
     // Create note
     const note = await prisma.kycNote.create({
       data: {
         caseId: params.id,
-        authorId: adminUser?.id || 'system',
+        authorId: user.id,
         body: noteBody,
       },
       include: {
@@ -45,7 +45,7 @@ export async function POST(
     // Create audit event
     await prisma.auditEvent.create({
       data: {
-        actorId: adminUser?.id || 'system',
+        actorId: user.id,
         action: 'KYC_NOTE_ADDED',
         resourceType: 'KycCase',
         resourceId: params.id,
@@ -54,8 +54,23 @@ export async function POST(
     })
 
     return NextResponse.json({ note })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error adding KYC note:', error)
+    
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+    
+    if (error.message.includes('Permission denied')) {
+      return NextResponse.json(
+        { error: 'Permission denied' },
+        { status: 403 }
+      )
+    }
+    
     return NextResponse.json(
       { error: 'Failed to add note' },
       { status: 500 }

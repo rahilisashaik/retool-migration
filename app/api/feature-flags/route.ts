@@ -1,10 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { featureFlagFilterSchema, featureFlagCreateSchema } from '@/lib/validations'
+import { requireAuth, checkPermission, requirePermissionCheck } from '@/lib/auth-helper'
+import { PERMISSIONS } from '@/lib/permissions'
 
 // GET /api/feature-flags - List feature flags with filters
 export async function GET(request: NextRequest) {
   try {
+    // Check authentication
+    const user = await requireAuth()
+    
+    // Check flag read permission
+    const hasReadAccess = await checkPermission(PERMISSIONS.FLAG_READ)
+    if (!hasReadAccess) {
+      return NextResponse.json(
+        { error: 'Permission denied' },
+        { status: 403 }
+      )
+    }
+
     const { searchParams } = new URL(request.url)
     
     const filters = featureFlagFilterSchema.parse({
@@ -41,8 +55,16 @@ export async function GET(request: NextRequest) {
     })
 
     return NextResponse.json({ flags })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching feature flags:', error)
+    
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+    
     return NextResponse.json(
       { error: 'Failed to fetch feature flags' },
       { status: 500 }
@@ -53,6 +75,9 @@ export async function GET(request: NextRequest) {
 // POST /api/feature-flags - Create a new feature flag
 export async function POST(request: NextRequest) {
   try {
+    // Check authentication and permissions
+    const user = await requirePermissionCheck(PERMISSIONS.FLAG_WRITE)
+
     const body = await request.json()
     const data = featureFlagCreateSchema.parse(body)
 
@@ -68,15 +93,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create feature flag (using admin user for now - would normally be from auth session)
-    const adminUser = await prisma.user.findFirst({
-      where: { role: 'ADMIN' },
-    })
-    
+    // Create feature flag
     const flag = await prisma.featureFlag.create({
       data: {
         ...data,
-        ownerId: adminUser?.id || 'system',
+        ownerId: user.id,
       },
       include: {
         owner: {
@@ -88,7 +109,7 @@ export async function POST(request: NextRequest) {
     // Create audit event
     await prisma.auditEvent.create({
       data: {
-        actorId: adminUser?.id || 'system',
+        actorId: user.id,
         action: 'FEATURE_FLAG_CREATED',
         resourceType: 'FeatureFlag',
         resourceId: flag.id,
@@ -97,8 +118,23 @@ export async function POST(request: NextRequest) {
     })
 
     return NextResponse.json({ flag }, { status: 201 })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating feature flag:', error)
+    
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+    
+    if (error.message.includes('Permission denied')) {
+      return NextResponse.json(
+        { error: 'Permission denied' },
+        { status: 403 }
+      )
+    }
+    
     return NextResponse.json(
       { error: 'Failed to create feature flag' },
       { status: 500 }
