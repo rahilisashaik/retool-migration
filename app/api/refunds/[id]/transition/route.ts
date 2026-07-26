@@ -1,77 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { refundTransitionSchema } from '@/lib/validations'
-import { requireAuth, requirePermissionCheck } from '@/lib/auth-helper'
 import { PERMISSIONS } from '@/lib/permissions'
+import { refundService } from '@/lib/services/refund.service'
+import { withMutationHandler } from '@/lib/api-wrapper'
 
 // POST /api/refunds/[id]/transition - Transition refund status
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    // Check authentication and permissions
-    const user = await requirePermissionCheck(PERMISSIONS.REFUND_WRITE)
+export const POST = withMutationHandler({
+  permission: PERMISSIONS.REFUND_WRITE,
+  service: refundService
+}, async (request: NextRequest, { user }: { user?: any }, { params }: { params: { id: string } }) => {
+  const body = await request.json()
+  const { status, reason } = refundTransitionSchema.parse(body)
 
-    const body = await request.json()
-    const { status, reason } = refundTransitionSchema.parse(body)
+  const updatedRefund = await refundService.transitionRefund(params.id, status, reason, user.id)
 
-    // Get current refund
-    const currentRefund = await prisma.refundRequest.findUnique({
-      where: { id: params.id },
-    })
-
-    if (!currentRefund) {
-      return NextResponse.json(
-        { error: 'Refund request not found' },
-        { status: 404 }
-      )
-    }
-
-    // Update refund
-    const updatedRefund = await prisma.refundRequest.update({
-      where: { id: params.id },
-      data: {
-        status,
-      },
-    })
-
-    // Create audit event
-    await prisma.auditEvent.create({
-      data: {
-        actorId: user.id,
-        action: `REFUND_${status}`,
-        resourceType: 'RefundRequest',
-        resourceId: params.id,
-        metadata: JSON.stringify({
-          oldStatus: currentRefund.status,
-          newStatus: status,
-          reason,
-        }),
-      },
-    })
-
-    return NextResponse.json({ refund: updatedRefund })
-  } catch (error: any) {
-    console.error('Error transitioning refund:', error)
-    
-    if (error.message === 'Unauthorized') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-    
-    if (error.message.includes('Permission denied')) {
-      return NextResponse.json(
-        { error: 'Permission denied' },
-        { status: 403 }
-      )
-    }
-    
-    return NextResponse.json(
-      { error: 'Failed to transition refund' },
-      { status: 500 }
-    )
-  }
-}
+  return NextResponse.json({ refund: updatedRefund })
+})

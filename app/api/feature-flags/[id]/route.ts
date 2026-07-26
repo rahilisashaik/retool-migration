@@ -1,235 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { featureFlagUpdateSchema } from '@/lib/validations'
-import { requireAuth, checkPermission, requirePermissionCheck } from '@/lib/auth-helper'
 import { PERMISSIONS } from '@/lib/permissions'
+import { featureFlagService } from '@/lib/services/feature-flag.service'
+import { withGetHandler, withMutationHandler } from '@/lib/api-wrapper'
 
 // GET /api/feature-flags/[id] - Get a specific feature flag
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    // Check authentication
-    const user = await requireAuth()
-    
-    // Check flag read permission
-    const hasReadAccess = await checkPermission(PERMISSIONS.FLAG_READ)
-    if (!hasReadAccess) {
-      return NextResponse.json(
-        { error: 'Permission denied' },
-        { status: 403 }
-      )
-    }
+export const GET = withGetHandler({
+  permission: PERMISSIONS.FLAG_READ,
+  service: featureFlagService
+}, async (request: NextRequest, { user }: { user?: any }, { params }: { params: { id: string } }) => {
+  const flag = await featureFlagService.getFeatureFlagById(params.id)
 
-    const flag = await prisma.featureFlag.findUnique({
-      where: { id: params.id },
-      include: {
-        owner: {
-          select: { id: true, name: true, email: true },
-        },
-        changes: {
-          include: {
-            actor: {
-              select: { id: true, name: true, email: true },
-            },
-          },
-          orderBy: { createdAt: 'desc' },
-        },
-      },
-    })
-
-    if (!flag) {
-      return NextResponse.json(
-        { error: 'Feature flag not found' },
-        { status: 404 }
-      )
-    }
-
-    return NextResponse.json({ flag })
-  } catch (error: any) {
-    console.error('Error fetching feature flag:', error)
-    
-    if (error.message === 'Unauthorized') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-    
-    return NextResponse.json(
-      { error: 'Failed to fetch feature flag' },
-      { status: 500 }
-    )
-  }
-}
+  return NextResponse.json({ flag })
+})
 
 // PATCH /api/feature-flags/[id] - Update a feature flag
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    // Check authentication and permissions
-    const user = await requirePermissionCheck(PERMISSIONS.FLAG_WRITE)
+export const PATCH = withMutationHandler({
+  permission: PERMISSIONS.FLAG_WRITE,
+  service: featureFlagService
+}, async (request: NextRequest, { user }: { user?: any }, { params }: { params: { id: string } }) => {
+  const body = await request.json()
+  const data = featureFlagUpdateSchema.parse(body)
 
-    const body = await request.json()
-    const data = featureFlagUpdateSchema.parse(body)
+  const updatedFlag = await featureFlagService.updateFeatureFlag(params.id, data, user.id)
 
-    // Get current flag
-    const currentFlag = await prisma.featureFlag.findUnique({
-      where: { id: params.id },
-    })
-
-    if (!currentFlag) {
-      return NextResponse.json(
-        { error: 'Feature flag not found' },
-        { status: 404 }
-      )
-    }
-
-    // Build update data
-    const updateData: any = {}
-    const changes: any[] = []
-
-    if (data.name !== undefined) {
-      updateData.name = data.name
-      changes.push({ field: 'name', oldValue: currentFlag.name, newValue: data.name })
-    }
-    if (data.description !== undefined) {
-      updateData.description = data.description
-      changes.push({ field: 'description', oldValue: currentFlag.description, newValue: data.description })
-    }
-    if (data.state !== undefined) {
-      updateData.state = data.state
-      changes.push({ field: 'state', oldValue: currentFlag.state, newValue: data.state })
-    }
-    if (data.rolloutPercentage !== undefined) {
-      updateData.rolloutPercentage = data.rolloutPercentage
-      changes.push({ field: 'rolloutPercentage', oldValue: currentFlag.rolloutPercentage, newValue: data.rolloutPercentage })
-    }
-    if (data.targetSegment !== undefined) {
-      updateData.targetSegment = data.targetSegment
-      changes.push({ field: 'targetSegment', oldValue: currentFlag.targetSegment, newValue: data.targetSegment })
-    }
-
-    // Update flag
-    const updatedFlag = await prisma.featureFlag.update({
-      where: { id: params.id },
-      data: updateData,
-      include: {
-        owner: {
-          select: { id: true, name: true, email: true },
-        },
-      },
-    })
-
-    // Create change records and audit events
-    for (const change of changes) {
-      await prisma.featureFlagChange.create({
-        data: {
-          flagId: params.id,
-          actorId: user.id,
-          field: change.field,
-          oldValue: String(change.oldValue),
-          newValue: String(change.newValue),
-          reason: data.reason,
-        },
-      })
-    }
-
-    // Create audit event
-    await prisma.auditEvent.create({
-      data: {
-        actorId: user.id,
-        action: 'FEATURE_FLAG_UPDATED',
-        resourceType: 'FeatureFlag',
-        resourceId: params.id,
-        metadata: JSON.stringify({ changes, reason: data.reason }),
-      },
-    })
-
-    return NextResponse.json({ flag: updatedFlag })
-  } catch (error: any) {
-    console.error('Error updating feature flag:', error)
-    
-    if (error.message === 'Unauthorized') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-    
-    if (error.message.includes('Permission denied')) {
-      return NextResponse.json(
-        { error: 'Permission denied' },
-        { status: 403 }
-      )
-    }
-    
-    return NextResponse.json(
-      { error: 'Failed to update feature flag' },
-      { status: 500 }
-    )
-  }
-}
+  return NextResponse.json({ flag: updatedFlag })
+})
 
 // DELETE /api/feature-flags/[id] - Delete a feature flag
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    // Check authentication and permissions
-    const user = await requirePermissionCheck(PERMISSIONS.FLAG_DELETE)
+export const DELETE = withMutationHandler({
+  permission: PERMISSIONS.FLAG_DELETE,
+  service: featureFlagService
+}, async (request: NextRequest, { user }: { user?: any }, { params }: { params: { id: string } }) => {
+  await featureFlagService.deleteFeatureFlag(params.id, user.id)
 
-    const flag = await prisma.featureFlag.findUnique({
-      where: { id: params.id },
-    })
-
-    if (!flag) {
-      return NextResponse.json(
-        { error: 'Feature flag not found' },
-        { status: 404 }
-      )
-    }
-
-    await prisma.featureFlag.delete({
-      where: { id: params.id },
-    })
-
-    // Create audit event
-    await prisma.auditEvent.create({
-      data: {
-        actorId: user.id,
-        action: 'FEATURE_FLAG_DELETED',
-        resourceType: 'FeatureFlag',
-        resourceId: params.id,
-        metadata: JSON.stringify({ key: flag.key }),
-      },
-    })
-
-    return NextResponse.json({ success: true })
-  } catch (error: any) {
-    console.error('Error deleting feature flag:', error)
-    
-    if (error.message === 'Unauthorized') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-    
-    if (error.message.includes('Permission denied')) {
-      return NextResponse.json(
-        { error: 'Permission denied' },
-        { status: 403 }
-      )
-    }
-    
-    return NextResponse.json(
-      { error: 'Failed to delete feature flag' },
-      { status: 500 }
-    )
-  }
-}
+  return NextResponse.json({ success: true })
+})
