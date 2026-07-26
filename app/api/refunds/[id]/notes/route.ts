@@ -28,32 +28,36 @@ export async function POST(
       )
     }
 
-    // Create note
-    const note = await prisma.refundNote.create({
-      data: {
-        refundId: params.id,
-        authorId: user.id,
-        body: noteBody,
-      },
-      include: {
-        author: {
-          select: { id: true, name: true, email: true },
+    // Create note and audit event in transaction
+    const result = await prisma.$transaction(async (tx) => {
+      const note = await tx.refundNote.create({
+        data: {
+          refundId: params.id,
+          authorId: user.id,
+          body: noteBody,
         },
-      },
+        include: {
+          author: {
+            select: { id: true, name: true, email: true },
+          },
+        },
+      })
+
+      // Create audit event
+      await tx.auditEvent.create({
+        data: {
+          actorId: user.id,
+          action: 'REFUND_NOTE_ADDED',
+          resourceType: 'RefundRequest',
+          resourceId: params.id,
+          metadata: JSON.stringify({ noteId: note.id }),
+        },
+      })
+
+      return note
     })
 
-    // Create audit event
-    await prisma.auditEvent.create({
-      data: {
-        actorId: user.id,
-        action: 'REFUND_NOTE_ADDED',
-        resourceType: 'RefundRequest',
-        resourceId: params.id,
-        metadata: JSON.stringify({ noteId: note.id }),
-      },
-    })
-
-    return NextResponse.json({ note })
+    return NextResponse.json({ note: result })
   } catch (error: any) {
     console.error('Error adding refund note:', error)
     

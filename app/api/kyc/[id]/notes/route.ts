@@ -28,32 +28,36 @@ export async function POST(
       )
     }
 
-    // Create note
-    const note = await prisma.kycNote.create({
-      data: {
-        caseId: params.id,
-        authorId: user.id,
-        body: noteBody,
-      },
-      include: {
-        author: {
-          select: { id: true, name: true, email: true },
+    // Create note and audit event in transaction
+    const result = await prisma.$transaction(async (tx) => {
+      const note = await tx.kycNote.create({
+        data: {
+          caseId: params.id,
+          authorId: user.id,
+          body: noteBody,
         },
-      },
+        include: {
+          author: {
+            select: { id: true, name: true, email: true },
+          },
+        },
+      })
+
+      // Create audit event
+      await tx.auditEvent.create({
+        data: {
+          actorId: user.id,
+          action: 'KYC_NOTE_ADDED',
+          resourceType: 'KycCase',
+          resourceId: params.id,
+          metadata: JSON.stringify({ noteId: note.id }),
+        },
+      })
+
+      return note
     })
 
-    // Create audit event
-    await prisma.auditEvent.create({
-      data: {
-        actorId: user.id,
-        action: 'KYC_NOTE_ADDED',
-        resourceType: 'KycCase',
-        resourceId: params.id,
-        metadata: JSON.stringify({ noteId: note.id }),
-      },
-    })
-
-    return NextResponse.json({ note })
+    return NextResponse.json({ note: result })
   } catch (error: any) {
     console.error('Error adding KYC note:', error)
     

@@ -28,32 +28,36 @@ export async function POST(
       )
     }
     
-    // Update case
-    const updatedCase = await prisma.kycCase.update({
-      where: { id: params.id },
-      data: {
-        status,
-        reviewedAt: new Date(),
-        reviewerId: user.id,
-      },
+    // Update case and create audit event in transaction
+    const result = await prisma.$transaction(async (tx) => {
+      const updatedCase = await tx.kycCase.update({
+        where: { id: params.id },
+        data: {
+          status,
+          reviewedAt: new Date(),
+          reviewerId: user.id,
+        },
+      })
+
+      // Create audit event
+      await tx.auditEvent.create({
+        data: {
+          actorId: user.id,
+          action: `KYC_CASE_${status}`,
+          resourceType: 'KycCase',
+          resourceId: params.id,
+          metadata: JSON.stringify({
+            oldStatus: currentCase.status,
+            newStatus: status,
+            reason,
+          }),
+        },
+      })
+
+      return updatedCase
     })
 
-    // Create audit event
-    await prisma.auditEvent.create({
-      data: {
-        actorId: user.id,
-        action: `KYC_CASE_${status}`,
-        resourceType: 'KycCase',
-        resourceId: params.id,
-        metadata: JSON.stringify({
-          oldStatus: currentCase.status,
-          newStatus: status,
-          reason,
-        }),
-      },
-    })
-
-    return NextResponse.json({ case: updatedCase })
+    return NextResponse.json({ case: result })
   } catch (error: any) {
     console.error('Error transitioning KYC case:', error)
     

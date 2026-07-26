@@ -40,35 +40,39 @@ export async function POST(
       )
     }
 
-    // Link refund to KYC case
-    const updatedRefund = await prisma.refundRequest.update({
-      where: { id: params.id },
-      data: {
-        kycCaseId,
-      },
-      include: {
-        kycCase: {
-          select: {
-            id: true,
-            status: true,
-            riskScore: true,
+    // Link refund to KYC case and create audit event in transaction
+    const result = await prisma.$transaction(async (tx) => {
+      const updatedRefund = await tx.refundRequest.update({
+        where: { id: params.id },
+        data: {
+          kycCaseId,
+        },
+        include: {
+          kycCase: {
+            select: {
+              id: true,
+              status: true,
+              riskScore: true,
+            },
           },
         },
-      },
+      })
+
+      // Create audit event
+      await tx.auditEvent.create({
+        data: {
+          actorId: user.id,
+          action: 'REFUND_LINKED_KYC',
+          resourceType: 'RefundRequest',
+          resourceId: params.id,
+          metadata: JSON.stringify({ kycCaseId }),
+        },
+      })
+
+      return updatedRefund
     })
 
-    // Create audit event
-    await prisma.auditEvent.create({
-      data: {
-        actorId: user.id,
-        action: 'REFUND_LINKED_KYC',
-        resourceType: 'RefundRequest',
-        resourceId: params.id,
-        metadata: JSON.stringify({ kycCaseId }),
-      },
-    })
-
-    return NextResponse.json({ refund: updatedRefund })
+    return NextResponse.json({ refund: result })
   } catch (error: any) {
     console.error('Error linking refund to KYC case:', error)
     

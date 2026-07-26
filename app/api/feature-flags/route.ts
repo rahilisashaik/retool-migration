@@ -93,28 +93,32 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create feature flag
-    const flag = await prisma.featureFlag.create({
-      data: {
-        ...data,
-        ownerId: user.id,
-      },
-      include: {
-        owner: {
-          select: { id: true, name: true, email: true },
+    // Create feature flag and audit event in transaction
+    const flag = await prisma.$transaction(async (tx) => {
+      const newFlag = await tx.featureFlag.create({
+        data: {
+          ...data,
+          ownerId: user.id,
         },
-      },
-    })
+        include: {
+          owner: {
+            select: { id: true, name: true, email: true },
+          },
+        },
+      })
 
-    // Create audit event
-    await prisma.auditEvent.create({
-      data: {
-        actorId: user.id,
-        action: 'FEATURE_FLAG_CREATED',
-        resourceType: 'FeatureFlag',
-        resourceId: flag.id,
-        metadata: JSON.stringify({ key: data.key }),
-      },
+      // Create audit event
+      await tx.auditEvent.create({
+        data: {
+          actorId: user.id,
+          action: 'FEATURE_FLAG_CREATED',
+          resourceType: 'FeatureFlag',
+          resourceId: newFlag.id,
+          metadata: JSON.stringify({ key: data.key }),
+        },
+      })
+
+      return newFlag
     })
 
     return NextResponse.json({ flag }, { status: 201 })

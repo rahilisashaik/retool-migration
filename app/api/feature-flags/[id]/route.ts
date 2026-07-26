@@ -113,43 +113,47 @@ export async function PATCH(
       changes.push({ field: 'targetSegment', oldValue: currentFlag.targetSegment, newValue: data.targetSegment })
     }
 
-    // Update flag
-    const updatedFlag = await prisma.featureFlag.update({
-      where: { id: params.id },
-      data: updateData,
-      include: {
-        owner: {
-          select: { id: true, name: true, email: true },
-        },
-      },
-    })
-
-    // Create change records and audit events
-    for (const change of changes) {
-      await prisma.featureFlagChange.create({
-        data: {
-          flagId: params.id,
-          actorId: user.id,
-          field: change.field,
-          oldValue: String(change.oldValue),
-          newValue: String(change.newValue),
-          reason: data.reason,
+    // Update flag, create change records and audit event in transaction
+    const result = await prisma.$transaction(async (tx) => {
+      const updatedFlag = await tx.featureFlag.update({
+        where: { id: params.id },
+        data: updateData,
+        include: {
+          owner: {
+            select: { id: true, name: true, email: true },
+          },
         },
       })
-    }
 
-    // Create audit event
-    await prisma.auditEvent.create({
-      data: {
-        actorId: user.id,
-        action: 'FEATURE_FLAG_UPDATED',
-        resourceType: 'FeatureFlag',
-        resourceId: params.id,
-        metadata: JSON.stringify({ changes, reason: data.reason }),
-      },
+      // Create change records
+      for (const change of changes) {
+        await tx.featureFlagChange.create({
+          data: {
+            flagId: params.id,
+            actorId: user.id,
+            field: change.field,
+            oldValue: String(change.oldValue),
+            newValue: String(change.newValue),
+            reason: data.reason,
+          },
+        })
+      }
+
+      // Create audit event
+      await tx.auditEvent.create({
+        data: {
+          actorId: user.id,
+          action: 'FEATURE_FLAG_UPDATED',
+          resourceType: 'FeatureFlag',
+          resourceId: params.id,
+          metadata: JSON.stringify({ changes, reason: data.reason }),
+        },
+      })
+
+      return updatedFlag
     })
 
-    return NextResponse.json({ flag: updatedFlag })
+    return NextResponse.json({ flag: result })
   } catch (error: any) {
     console.error('Error updating feature flag:', error)
     
@@ -194,19 +198,22 @@ export async function DELETE(
       )
     }
 
-    await prisma.featureFlag.delete({
-      where: { id: params.id },
-    })
+    // Delete flag and create audit event in transaction
+    await prisma.$transaction(async (tx) => {
+      await tx.featureFlag.delete({
+        where: { id: params.id },
+      })
 
-    // Create audit event
-    await prisma.auditEvent.create({
-      data: {
-        actorId: user.id,
-        action: 'FEATURE_FLAG_DELETED',
-        resourceType: 'FeatureFlag',
-        resourceId: params.id,
-        metadata: JSON.stringify({ key: flag.key }),
-      },
+      // Create audit event
+      await tx.auditEvent.create({
+        data: {
+          actorId: user.id,
+          action: 'FEATURE_FLAG_DELETED',
+          resourceType: 'FeatureFlag',
+          resourceId: params.id,
+          metadata: JSON.stringify({ key: flag.key }),
+        },
+      })
     })
 
     return NextResponse.json({ success: true })

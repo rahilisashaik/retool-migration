@@ -28,30 +28,34 @@ export async function POST(
       )
     }
 
-    // Update refund
-    const updatedRefund = await prisma.refundRequest.update({
-      where: { id: params.id },
-      data: {
-        status,
-      },
+    // Update refund and create audit event in transaction
+    const result = await prisma.$transaction(async (tx) => {
+      const updatedRefund = await tx.refundRequest.update({
+        where: { id: params.id },
+        data: {
+          status,
+        },
+      })
+
+      // Create audit event
+      await tx.auditEvent.create({
+        data: {
+          actorId: user.id,
+          action: `REFUND_${status}`,
+          resourceType: 'RefundRequest',
+          resourceId: params.id,
+          metadata: JSON.stringify({
+            oldStatus: currentRefund.status,
+            newStatus: status,
+            reason,
+          }),
+        },
+      })
+
+      return updatedRefund
     })
 
-    // Create audit event
-    await prisma.auditEvent.create({
-      data: {
-        actorId: user.id,
-        action: `REFUND_${status}`,
-        resourceType: 'RefundRequest',
-        resourceId: params.id,
-        metadata: JSON.stringify({
-          oldStatus: currentRefund.status,
-          newStatus: status,
-          reason,
-        }),
-      },
-    })
-
-    return NextResponse.json({ refund: updatedRefund })
+    return NextResponse.json({ refund: result })
   } catch (error: any) {
     console.error('Error transitioning refund:', error)
     
