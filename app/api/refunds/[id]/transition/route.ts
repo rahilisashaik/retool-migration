@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { refundTransitionSchema } from '@/lib/validations'
+import { refundTransitionSchema, handleValidationError } from '@/lib/validations'
 import { requireAuth, requirePermissionCheck } from '@/lib/auth-helper'
 import { PERMISSIONS } from '@/lib/permissions'
 
@@ -58,6 +58,10 @@ export async function POST(
     return NextResponse.json({ refund: result })
   } catch (error: any) {
     console.error('Error transitioning refund:', error)
+    
+    // Handle validation errors
+    const validationError = handleValidationError(error)
+    if (validationError) return validationError
     
     if (error.message === 'Unauthorized') {
       return NextResponse.json(

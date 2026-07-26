@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { featureFlagFilterSchema, featureFlagCreateSchema } from '@/lib/validations'
+import { featureFlagFilterSchema, featureFlagCreateSchema, handleValidationError } from '@/lib/validations'
 import { requireAuth, checkPermission, requirePermissionCheck } from '@/lib/auth-helper'
 import { PERMISSIONS } from '@/lib/permissions'
 
@@ -57,6 +57,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ flags })
   } catch (error: any) {
     console.error('Error fetching feature flags:', error)
+    
+    // Handle validation errors
+    const validationError = handleValidationError(error)
+    if (validationError) return validationError
     
     if (error.message === 'Unauthorized') {
       return NextResponse.json(
@@ -124,6 +128,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ flag }, { status: 201 })
   } catch (error: any) {
     console.error('Error creating feature flag:', error)
+    
+    // Handle validation errors
+    const validationError = handleValidationError(error)
+    if (validationError) return validationError
     
     if (error.message === 'Unauthorized') {
       return NextResponse.json(

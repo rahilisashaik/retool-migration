@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { refundNoteSchema } from '@/lib/validations'
+import { refundNoteSchema, handleValidationError } from '@/lib/validations'
 import { requireAuth, requirePermissionCheck } from '@/lib/auth-helper'
 import { PERMISSIONS } from '@/lib/permissions'
 
@@ -60,6 +60,10 @@ export async function POST(
     return NextResponse.json({ note: result })
   } catch (error: any) {
     console.error('Error adding refund note:', error)
+    
+    // Handle validation errors
+    const validationError = handleValidationError(error)
+    if (validationError) return validationError
     
     if (error.message === 'Unauthorized') {
       return NextResponse.json(

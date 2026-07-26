@@ -1,4 +1,19 @@
 import { z } from 'zod'
+import { NextResponse } from 'next/server'
+
+// Validation error handler
+export function handleValidationError(error: any) {
+  if (error instanceof z.ZodError) {
+    return NextResponse.json(
+      { 
+        error: 'Validation failed', 
+        details: error.errors 
+      },
+      { status: 400 }
+    )
+  }
+  return null
+}
 
 // KYC validation schemas
 export const kycCaseFilterSchema = z.object({

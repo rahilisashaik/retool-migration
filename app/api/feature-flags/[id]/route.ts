@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { featureFlagUpdateSchema } from '@/lib/validations'
+import { featureFlagUpdateSchema, handleValidationError } from '@/lib/validations'
 import { requireAuth, checkPermission, requirePermissionCheck } from '@/lib/auth-helper'
 import { PERMISSIONS } from '@/lib/permissions'
 
@@ -157,6 +157,10 @@ export async function PATCH(
   } catch (error: any) {
     console.error('Error updating feature flag:', error)
     
+    // Handle validation errors
+    const validationError = handleValidationError(error)
+    if (validationError) return validationError
+    
     if (error.message === 'Unauthorized') {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -219,6 +223,10 @@ export async function DELETE(
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error deleting feature flag:', error)
+    
+    // Handle validation errors
+    const validationError = handleValidationError(error)
+    if (validationError) return validationError
     
     if (error.message === 'Unauthorized') {
       return NextResponse.json(

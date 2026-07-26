@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { kycCaseFilterSchema } from '@/lib/validations'
+import { kycCaseFilterSchema, handleValidationError } from '@/lib/validations'
 import { requireAuth, checkPermission } from '@/lib/auth-helper'
 import { PERMISSIONS } from '@/lib/permissions'
 
@@ -67,6 +67,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ cases })
   } catch (error: any) {
     console.error('Error fetching KYC cases:', error)
+    
+    // Handle validation errors
+    const validationError = handleValidationError(error)
+    if (validationError) return validationError
     
     if (error.message === 'Unauthorized') {
       return NextResponse.json(

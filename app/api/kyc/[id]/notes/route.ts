@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { kycNoteSchema } from '@/lib/validations'
+import { kycNoteSchema, handleValidationError } from '@/lib/validations'
 import { requireAuth, requirePermissionCheck } from '@/lib/auth-helper'
 import { PERMISSIONS } from '@/lib/permissions'
 
@@ -60,6 +60,10 @@ export async function POST(
     return NextResponse.json({ note: result })
   } catch (error: any) {
     console.error('Error adding KYC note:', error)
+    
+    // Handle validation errors
+    const validationError = handleValidationError(error)
+    if (validationError) return validationError
     
     if (error.message === 'Unauthorized') {
       return NextResponse.json(

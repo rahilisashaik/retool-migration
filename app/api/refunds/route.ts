@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { refundFilterSchema } from '@/lib/validations'
+import { refundFilterSchema, handleValidationError } from '@/lib/validations'
 import { requireAuth, checkPermission } from '@/lib/auth-helper'
 import { PERMISSIONS } from '@/lib/permissions'
 
@@ -74,6 +74,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ refunds })
   } catch (error: any) {
     console.error('Error fetching refund requests:', error)
+    
+    // Handle validation errors
+    const validationError = handleValidationError(error)
+    if (validationError) return validationError
     
     if (error.message === 'Unauthorized') {
       return NextResponse.json(
