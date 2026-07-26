@@ -3,6 +3,26 @@ import { prisma } from '@/lib/prisma'
 import { Environment, FeatureFlagType, FeatureFlagState } from '@prisma/client'
 
 /**
+ * Type-safe feature flag update data
+ */
+interface FeatureFlagUpdateData {
+  name?: string
+  description?: string
+  state?: FeatureFlagState
+  rolloutPercentage?: number
+  targetSegment?: string
+}
+
+/**
+ * Type-safe feature flag change record
+ */
+interface FeatureFlagChange {
+  field: string
+  oldValue: string | number | null
+  newValue: string | number | null
+}
+
+/**
  * Feature Flag Service - Handles all feature flag-related business logic
  */
 export class FeatureFlagService extends BaseService {
@@ -129,14 +149,7 @@ export class FeatureFlagService extends BaseService {
    */
   async updateFeatureFlag(
     id: string,
-    updates: {
-      name?: string
-      description?: string
-      state?: FeatureFlagState
-      rolloutPercentage?: number
-      targetSegment?: string
-      reason?: string
-    },
+    updates: FeatureFlagUpdateData & { reason?: string },
     actorId: string
   ) {
     const currentFlag = await this.findById({
@@ -148,8 +161,8 @@ export class FeatureFlagService extends BaseService {
       throw new Error('Not found')
     }
 
-    const updateData: any = {}
-    const changes: any[] = []
+    const updateData: FeatureFlagUpdateData = {}
+    const changes: FeatureFlagChange[] = []
 
     if (updates.name !== undefined) {
       updateData.name = updates.name
