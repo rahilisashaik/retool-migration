@@ -14,14 +14,14 @@ export abstract class BaseService {
   /**
    * Authenticate the current request and return the user
    */
-  protected async authenticate() {
+  public async authenticate() {
     return await requireAuth()
   }
 
   /**
    * Check if the current user has the required permission
    */
-  protected async authorize(permission: string): Promise<boolean> {
+  public async authorize(permission: string): Promise<boolean> {
     return await checkPermission(permission)
   }
 
@@ -29,7 +29,7 @@ export abstract class BaseService {
    * Require authentication and authorization in one call
    * Throws error if user is not authenticated or lacks permission
    */
-  protected async requireAuthAndPermission(permission: string) {
+  public async requireAuthAndPermission(permission: string) {
     const user = await this.authenticate()
     const hasPermission = await this.authorize(permission)
     
@@ -43,7 +43,7 @@ export abstract class BaseService {
   /**
    * Apply rate limiting to the request
    */
-  protected async applyRateLimit(request: NextRequest, type: keyof typeof RATE_LIMITS) {
+  public async applyRateLimit(request: NextRequest, type: keyof typeof RATE_LIMITS) {
     const rateLimitResponse = await applyRateLimit(request, type)
     if (rateLimitResponse) {
       return rateLimitResponse
@@ -54,7 +54,7 @@ export abstract class BaseService {
   /**
    * Handle common error types and return appropriate responses
    */
-  protected handleError(error: any): NextResponse {
+  public handleError(error: any): NextResponse {
     console.error('Service error:', error)
 
     // Handle validation errors
@@ -95,7 +95,7 @@ export abstract class BaseService {
   /**
    * Execute a database operation within a transaction
    */
-  protected async transaction<T>(
+  public async transaction<T>(
     callback: (tx: any) => Promise<T>
   ): Promise<T> {
     return await prisma.$transaction(callback)
@@ -104,7 +104,7 @@ export abstract class BaseService {
   /**
    * Generic find with pagination
    */
-  protected async findMany<T>({
+  public async findMany<T>({
     model,
     where = {},
     include = {},
@@ -143,7 +143,7 @@ export abstract class BaseService {
   /**
    * Generic find by ID
    */
-  protected async findById<T>({
+  public async findById<T>({
     model,
     id,
     include = {},
@@ -161,7 +161,7 @@ export abstract class BaseService {
   /**
    * Generic create
    */
-  protected async create<T>({
+  public async create<T>({
     model,
     data,
     include = {},
@@ -179,7 +179,7 @@ export abstract class BaseService {
   /**
    * Generic update
    */
-  protected async update<T>({
+  public async update<T>({
     model,
     id,
     data,
@@ -200,7 +200,7 @@ export abstract class BaseService {
   /**
    * Generic delete
    */
-  protected async delete({
+  public async delete({
     model,
     id,
   }: {
@@ -215,7 +215,7 @@ export abstract class BaseService {
   /**
    * Create audit event
    */
-  protected async createAuditEvent({
+  public async createAuditEvent({
     actorId,
     action,
     resourceType,

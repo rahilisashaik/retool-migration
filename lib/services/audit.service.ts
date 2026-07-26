@@ -8,7 +8,7 @@ export class AuditService extends BaseService {
   /**
    * Get audit events with filters
    */
-  async getAuditEvents(filters: {
+  public async getAuditEvents(filters: {
     actorId?: string
     action?: string
     resourceType?: string

@@ -1,47 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { PERMISSIONS } from '@/lib/permissions'
+import { refundService } from '@/lib/services/refund.service'
+import { withGetHandler } from '@/lib/api-wrapper'
 
 // GET /api/refunds/[id] - Get a specific refund request
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const refund = await prisma.refundRequest.findUnique({
-      where: { id: params.id },
-      include: {
-        kycCase: {
-          select: {
-            id: true,
-            status: true,
-            riskScore: true,
-            customerId: true,
-          },
-        },
-        notes: {
-          include: {
-            author: {
-              select: { id: true, name: true, email: true },
-            },
-          },
-          orderBy: { createdAt: 'desc' },
-        },
-      },
-    })
+export const GET = withGetHandler({
+  permission: PERMISSIONS.REFUND_READ,
+  service: refundService
+}, async (request: NextRequest, { user }: { user?: any }, { params }: { params: { id: string } }) => {
+  const refund = await refundService.getRefundById(params.id)
 
-    if (!refund) {
-      return NextResponse.json(
-        { error: 'Refund request not found' },
-        { status: 404 }
-      )
-    }
-
-    return NextResponse.json({ refund })
-  } catch (error) {
-    console.error('Error fetching refund request:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch refund request' },
-      { status: 500 }
-    )
-  }
-}
+  return NextResponse.json({ refund })
+})

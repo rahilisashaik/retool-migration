@@ -1,24 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PERMISSIONS } from '@/lib/permissions'
 import { kycService } from '@/lib/services/kyc.service'
+import { withGetHandler } from '@/lib/api-wrapper'
 
 // GET /api/kyc/[id] - Get a specific KYC case
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    // Apply authentication and authorization
-    await kycService.requireAuthAndPermission(PERMISSIONS.KYC_READ)
+export const GET = withGetHandler({
+  permission: PERMISSIONS.KYC_READ,
+  service: kycService
+}, async (request: NextRequest, { user }: { user?: any }, { params }: { params: { id: string } }) => {
+  const kycCase = await kycService.getKycCaseById(params.id)
 
-    // Apply rate limiting
-    const rateLimitResponse = await kycService.applyRateLimit(request, 'READ')
-    if (rateLimitResponse) return rateLimitResponse
-
-    const kycCase = await kycService.getKycCaseById(params.id)
-
-    return NextResponse.json({ case: kycCase })
-  } catch (error: any) {
-    return kycService.handleError(error)
-  }
-}
+  return NextResponse.json({ case: kycCase })
+})

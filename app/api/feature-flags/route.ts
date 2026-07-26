@@ -1,59 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { featureFlagFilterSchema, featureFlagCreateSchema, handleValidationError } from '@/lib/validations'
+import { featureFlagFilterSchema, featureFlagCreateSchema } from '@/lib/validations'
 import { PERMISSIONS } from '@/lib/permissions'
 import { featureFlagService } from '@/lib/services/feature-flag.service'
+import { withGetHandler, withMutationHandler, parseQueryParams } from '@/lib/api-wrapper'
 
 // GET /api/feature-flags - List feature flags with filters
-export async function GET(request: NextRequest) {
-  try {
-    // Apply authentication and authorization
-    await featureFlagService.requireAuthAndPermission(PERMISSIONS.FLAG_READ)
+export const GET = withGetHandler({
+  permission: PERMISSIONS.FLAG_READ,
+  service: featureFlagService
+}, async (request: NextRequest, { user }: { user?: any }) => {
+  const filters = parseQueryParams(request, featureFlagFilterSchema)
 
-    // Apply rate limiting
-    const rateLimitResponse = await featureFlagService.applyRateLimit(request, 'READ')
-    if (rateLimitResponse) return rateLimitResponse
+  const result = await featureFlagService.getFeatureFlags({
+    ...filters,
+    page: 1,
+    limit: 50,
+  })
 
-    const { searchParams } = new URL(request.url)
-    
-    const filters = featureFlagFilterSchema.parse({
-      environment: searchParams.get('environment') || undefined,
-      state: searchParams.get('state') || undefined,
-      ownerId: searchParams.get('ownerId') || undefined,
-      type: searchParams.get('type') || undefined,
-    })
-
-    const result = await featureFlagService.getFeatureFlags({
-      ...filters,
-      page: 1,
-      limit: 50,
-    })
-
-    return NextResponse.json({ flags: result.data, total: result.total })
-  } catch (error: any) {
-    return featureFlagService.handleError(error)
-  }
-}
+  return NextResponse.json({ flags: result.data, total: result.total })
+})
 
 // POST /api/feature-flags - Create a new feature flag
-export async function POST(request: NextRequest) {
-  try {
-    // Apply authentication and authorization
-    const user = await featureFlagService.requireAuthAndPermission(PERMISSIONS.FLAG_WRITE)
+export const POST = withMutationHandler({
+  permission: PERMISSIONS.FLAG_WRITE,
+  service: featureFlagService
+}, async (request: NextRequest, { user }: { user?: any }) => {
+  const body = await request.json()
+  const data = featureFlagCreateSchema.parse(body)
 
-    // Apply rate limiting
-    const rateLimitResponse = await featureFlagService.applyRateLimit(request, 'MUTATION')
-    if (rateLimitResponse) return rateLimitResponse
+  const flag = await featureFlagService.createFeatureFlag({
+    ...data,
+    ownerId: user.id,
+  })
 
-    const body = await request.json()
-    const data = featureFlagCreateSchema.parse(body)
-
-    const flag = await featureFlagService.createFeatureFlag({
-      ...data,
-      ownerId: user.id,
-    })
-
-    return NextResponse.json({ flag }, { status: 201 })
-  } catch (error: any) {
-    return featureFlagService.handleError(error)
-  }
-}
+  return NextResponse.json({ flag }, { status: 201 })
+})

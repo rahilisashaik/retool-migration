@@ -1,28 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { kycCaseTransitionSchema, handleValidationError } from '@/lib/validations'
+import { kycCaseTransitionSchema } from '@/lib/validations'
 import { PERMISSIONS } from '@/lib/permissions'
 import { kycService } from '@/lib/services/kyc.service'
+import { withMutationHandler } from '@/lib/api-wrapper'
 
 // POST /api/kyc/[id]/transition - Transition KYC case status
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    // Apply authentication and authorization
-    const user = await kycService.requireAuthAndPermission(PERMISSIONS.KYC_WRITE)
+export const POST = withMutationHandler({
+  permission: PERMISSIONS.KYC_WRITE,
+  service: kycService
+}, async (request: NextRequest, { user }: { user?: any }, { params }: { params: { id: string } }) => {
+  const body = await request.json()
+  const { status, reason } = kycCaseTransitionSchema.parse(body)
 
-    // Apply rate limiting
-    const rateLimitResponse = await kycService.applyRateLimit(request, 'MUTATION')
-    if (rateLimitResponse) return rateLimitResponse
+  const updatedCase = await kycService.transitionKycCase(params.id, status, reason, user.id)
 
-    const body = await request.json()
-    const { status, reason } = kycCaseTransitionSchema.parse(body)
-
-    const updatedCase = await kycService.transitionKycCase(params.id, status, reason, user.id)
-
-    return NextResponse.json({ case: updatedCase })
-  } catch (error: any) {
-    return kycService.handleError(error)
-  }
-}
+  return NextResponse.json({ case: updatedCase })
+})

@@ -20,7 +20,7 @@ export function handleValidationError(error: any) {
 
 // KYC validation schemas
 export const kycCaseFilterSchema = z.object({
-  status: z.string().optional(),
+  status: z.enum(Object.values(KycStatus) as [string, ...string[]]).optional(),
   minRiskScore: z.number().optional(),
   maxRiskScore: z.number().optional(),
   assigneeId: z.string().optional(),
@@ -29,7 +29,7 @@ export const kycCaseFilterSchema = z.object({
 })
 
 export const kycCaseTransitionSchema = z.object({
-  status: z.nativeEnum(KycStatus),
+  status: z.enum(Object.values(KycStatus) as [string, ...string[]]),
   reason: z.string().min(1, 'Reason is required'),
 })
 
@@ -41,7 +41,7 @@ export const kycNoteSchema = z.object({
 export const refundFilterSchema = z.object({
   orderId: z.string().optional(),
   customerId: z.string().optional(),
-  status: z.nativeEnum(RefundStatus).optional(),
+  status: z.enum(Object.values(RefundStatus) as [string, ...string[]]).optional(),
   minAmount: z.number().optional(),
   maxAmount: z.number().optional(),
   currency: z.string().optional(),
@@ -50,7 +50,7 @@ export const refundFilterSchema = z.object({
 })
 
 export const refundTransitionSchema = z.object({
-  status: z.nativeEnum(RefundStatus),
+  status: z.enum(Object.values(RefundStatus) as [string, ...string[]]),
   reason: z.string().min(1, 'Reason is required'),
 })
 
@@ -64,19 +64,19 @@ export const refundNoteSchema = z.object({
 
 // Feature flag validation schemas
 export const featureFlagFilterSchema = z.object({
-  environment: z.string().optional(),
-  state: z.string().optional(),
+  environment: z.enum(Object.values(Environment) as [string, ...string[]]).optional(),
+  state: z.enum(Object.values(FeatureFlagState) as [string, ...string[]]).optional(),
   ownerId: z.string().optional(),
-  type: z.string().optional(),
+  type: z.enum(Object.values(FeatureFlagType) as [string, ...string[]]).optional(),
 })
 
 export const featureFlagCreateSchema = z.object({
   key: z.string().min(1, 'Key is required').regex(/^[a-z0-9_]+$/, 'Key must be lowercase alphanumeric with underscores'),
   name: z.string().min(1, 'Name is required'),
   description: z.string().optional(),
-  environment: z.nativeEnum(Environment),
-  type: z.nativeEnum(FeatureFlagType),
-  state: z.nativeEnum(FeatureFlagState).optional(),
+  environment: z.enum(Object.values(Environment) as [string, ...string[]]),
+  type: z.enum(Object.values(FeatureFlagType) as [string, ...string[]]),
+  state: z.enum(Object.values(FeatureFlagState) as [string, ...string[]]).optional(),
   rolloutPercentage: z.number().min(0).max(100).default(0),
   targetSegment: z.string().optional(),
 })
@@ -84,7 +84,7 @@ export const featureFlagCreateSchema = z.object({
 export const featureFlagUpdateSchema = z.object({
   name: z.string().min(1, 'Name is required').optional(),
   description: z.string().optional(),
-  state: z.nativeEnum(FeatureFlagState).optional(),
+  state: z.enum(Object.values(FeatureFlagState) as [string, ...string[]]).optional(),
   rolloutPercentage: z.number().min(0).max(100).optional(),
   targetSegment: z.string().optional(),
   reason: z.string().optional(),

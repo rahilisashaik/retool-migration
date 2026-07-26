@@ -1,7 +1,6 @@
 import { BaseService } from './base.service'
 import { prisma } from '@/lib/prisma'
 import { KycStatus } from '@prisma/client'
-import { Decimal } from '@prisma/client/runtime/library'
 
 /**
  * KYC Service - Handles all KYC-related business logic
@@ -10,8 +9,8 @@ export class KycService extends BaseService {
   /**
    * Get all KYC cases with filters
    */
-  async getKycCases(filters: {
-    status?: KycStatus
+  public async getKycCases(filters: {
+    status?: string
     minRiskScore?: number
     maxRiskScore?: number
     assigneeId?: string
@@ -61,7 +60,7 @@ export class KycService extends BaseService {
   /**
    * Get a specific KYC case by ID
    */
-  async getKycCaseById(id: string) {
+  public async getKycCaseById(id: string) {
     const kycCase = await this.findById({
       model: prisma.kycCase,
       id,
@@ -91,7 +90,7 @@ export class KycService extends BaseService {
   /**
    * Add a note to a KYC case
    */
-  async addKycNote(caseId: string, authorId: string, body: string) {
+  public async addKycNote(caseId: string, authorId: string, body: string) {
     return this.transaction(async (tx) => {
       const note = await tx.kycNote.create({
         data: {
@@ -121,13 +120,13 @@ export class KycService extends BaseService {
   /**
    * Transition KYC case status
    */
-  async transitionKycCase(
+  public async transitionKycCase(
     caseId: string,
-    status: KycStatus,
+    status: string,
     reason: string,
     reviewerId: string
   ) {
-    const currentCase = await this.findById({
+    const currentCase: any = await this.findById({
       model: prisma.kycCase,
       id: caseId,
     })

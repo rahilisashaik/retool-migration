@@ -1,70 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { featureFlagUpdateSchema, handleValidationError } from '@/lib/validations'
+import { featureFlagUpdateSchema } from '@/lib/validations'
 import { PERMISSIONS } from '@/lib/permissions'
 import { featureFlagService } from '@/lib/services/feature-flag.service'
+import { withGetHandler, withMutationHandler } from '@/lib/api-wrapper'
 
 // GET /api/feature-flags/[id] - Get a specific feature flag
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    // Apply authentication and authorization
-    await featureFlagService.requireAuthAndPermission(PERMISSIONS.FLAG_READ)
+export const GET = withGetHandler({
+  permission: PERMISSIONS.FLAG_READ,
+  service: featureFlagService
+}, async (request: NextRequest, { user }: { user?: any }, { params }: { params: { id: string } }) => {
+  const flag = await featureFlagService.getFeatureFlagById(params.id)
 
-    // Apply rate limiting
-    const rateLimitResponse = await featureFlagService.applyRateLimit(request, 'READ')
-    if (rateLimitResponse) return rateLimitResponse
-
-    const flag = await featureFlagService.getFeatureFlagById(params.id)
-
-    return NextResponse.json({ flag })
-  } catch (error: any) {
-    return featureFlagService.handleError(error)
-  }
-}
+  return NextResponse.json({ flag })
+})
 
 // PATCH /api/feature-flags/[id] - Update a feature flag
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    // Apply authentication and authorization
-    const user = await featureFlagService.requireAuthAndPermission(PERMISSIONS.FLAG_WRITE)
+export const PATCH = withMutationHandler({
+  permission: PERMISSIONS.FLAG_WRITE,
+  service: featureFlagService
+}, async (request: NextRequest, { user }: { user?: any }, { params }: { params: { id: string } }) => {
+  const body = await request.json()
+  const data = featureFlagUpdateSchema.parse(body)
 
-    // Apply rate limiting
-    const rateLimitResponse = await featureFlagService.applyRateLimit(request, 'MUTATION')
-    if (rateLimitResponse) return rateLimitResponse
+  const updatedFlag = await featureFlagService.updateFeatureFlag(params.id, data, user.id)
 
-    const body = await request.json()
-    const data = featureFlagUpdateSchema.parse(body)
-
-    const updatedFlag = await featureFlagService.updateFeatureFlag(params.id, data, user.id)
-
-    return NextResponse.json({ flag: updatedFlag })
-  } catch (error: any) {
-    return featureFlagService.handleError(error)
-  }
-}
+  return NextResponse.json({ flag: updatedFlag })
+})
 
 // DELETE /api/feature-flags/[id] - Delete a feature flag
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    // Apply authentication and authorization
-    const user = await featureFlagService.requireAuthAndPermission(PERMISSIONS.FLAG_DELETE)
+export const DELETE = withMutationHandler({
+  permission: PERMISSIONS.FLAG_DELETE,
+  service: featureFlagService
+}, async (request: NextRequest, { user }: { user?: any }, { params }: { params: { id: string } }) => {
+  await featureFlagService.deleteFeatureFlag(params.id, user.id)
 
-    // Apply rate limiting
-    const rateLimitResponse = await featureFlagService.applyRateLimit(request, 'MUTATION')
-    if (rateLimitResponse) return rateLimitResponse
-
-    await featureFlagService.deleteFeatureFlag(params.id, user.id)
-
-    return NextResponse.json({ success: true })
-  } catch (error: any) {
-    return featureFlagService.handleError(error)
-  }
-}
+  return NextResponse.json({ success: true })
+})

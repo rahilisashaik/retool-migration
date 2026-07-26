@@ -1,6 +1,5 @@
 import { BaseService } from './base.service'
 import { prisma } from '@/lib/prisma'
-import { Environment, FeatureFlagType, FeatureFlagState } from '@prisma/client'
 
 /**
  * Type-safe feature flag update data
@@ -8,7 +7,7 @@ import { Environment, FeatureFlagType, FeatureFlagState } from '@prisma/client'
 interface FeatureFlagUpdateData {
   name?: string
   description?: string
-  state?: FeatureFlagState
+  state?: string
   rolloutPercentage?: number
   targetSegment?: string
 }
@@ -29,11 +28,11 @@ export class FeatureFlagService extends BaseService {
   /**
    * Get all feature flags with filters
    */
-  async getFeatureFlags(filters: {
-    environment?: Environment
-    state?: FeatureFlagState
+  public async getFeatureFlags(filters: {
+    environment?: string
+    state?: string
     ownerId?: string
-    type?: FeatureFlagType
+    type?: string
     page?: number
     limit?: number
   }) {
@@ -70,7 +69,7 @@ export class FeatureFlagService extends BaseService {
   /**
    * Get a specific feature flag by ID
    */
-  async getFeatureFlagById(id: string) {
+  public async getFeatureFlagById(id: string) {
     const flag = await this.findById({
       model: prisma.featureFlag,
       id,
@@ -99,13 +98,13 @@ export class FeatureFlagService extends BaseService {
   /**
    * Create a new feature flag
    */
-  async createFeatureFlag(data: {
+  public async createFeatureFlag(data: {
     key: string
     name: string
     description?: string
-    environment: Environment
-    type: FeatureFlagType
-    state?: FeatureFlagState
+    environment: string
+    type: string
+    state?: string
     rolloutPercentage?: number
     targetSegment?: string
     ownerId: string
@@ -123,7 +122,7 @@ export class FeatureFlagService extends BaseService {
       const flag = await tx.featureFlag.create({
         data: {
           ...data,
-          state: data.state || FeatureFlagState.DISABLED,
+          state: data.state || 'DISABLED',
         },
         include: {
           owner: {
@@ -147,12 +146,12 @@ export class FeatureFlagService extends BaseService {
   /**
    * Update a feature flag
    */
-  async updateFeatureFlag(
+  public async updateFeatureFlag(
     id: string,
     updates: FeatureFlagUpdateData & { reason?: string },
     actorId: string
   ) {
-    const currentFlag = await this.findById({
+    const currentFlag: any = await this.findById({
       model: prisma.featureFlag,
       id,
     })
@@ -225,8 +224,8 @@ export class FeatureFlagService extends BaseService {
   /**
    * Delete a feature flag
    */
-  async deleteFeatureFlag(id: string, actorId: string) {
-    const flag = await this.findById({
+  public async deleteFeatureFlag(id: string, actorId: string) {
+    const flag: any = await this.findById({
       model: prisma.featureFlag,
       id,
     })

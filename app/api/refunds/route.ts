@@ -1,39 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { refundFilterSchema, handleValidationError } from '@/lib/validations'
+import { refundFilterSchema } from '@/lib/validations'
 import { PERMISSIONS } from '@/lib/permissions'
 import { refundService } from '@/lib/services/refund.service'
+import { withGetHandler, parseQueryParams } from '@/lib/api-wrapper'
 
 // GET /api/refunds - List refund requests with filters
-export async function GET(request: NextRequest) {
-  try {
-    // Apply authentication and authorization
-    await refundService.requireAuthAndPermission(PERMISSIONS.REFUND_READ)
+export const GET = withGetHandler({
+  permission: PERMISSIONS.REFUND_READ,
+  service: refundService
+}, async (request: NextRequest, { user }: { user?: any }) => {
+  const filters = parseQueryParams(request, refundFilterSchema)
 
-    // Apply rate limiting
-    const rateLimitResponse = await refundService.applyRateLimit(request, 'READ')
-    if (rateLimitResponse) return rateLimitResponse
+  const result = await refundService.getRefundRequests({
+    ...filters,
+    page: 1,
+    limit: 50,
+  })
 
-    const { searchParams } = new URL(request.url)
-    
-    const filters = refundFilterSchema.parse({
-      orderId: searchParams.get('orderId') || undefined,
-      customerId: searchParams.get('customerId') || undefined,
-      status: searchParams.get('status') || undefined,
-      minAmount: searchParams.get('minAmount') ? Number(searchParams.get('minAmount')) : undefined,
-      maxAmount: searchParams.get('maxAmount') ? Number(searchParams.get('maxAmount')) : undefined,
-      currency: searchParams.get('currency') || undefined,
-      fromDate: searchParams.get('fromDate') || undefined,
-      toDate: searchParams.get('toDate') || undefined,
-    })
-
-    const result = await refundService.getRefundRequests({
-      ...filters,
-      page: 1,
-      limit: 50,
-    })
-
-    return NextResponse.json({ refunds: result.data, total: result.total })
-  } catch (error: any) {
-    return refundService.handleError(error)
-  }
-}
+  return NextResponse.json({ refunds: result.data, total: result.total })
+})

@@ -1,6 +1,5 @@
 import { BaseService } from './base.service'
 import { prisma } from '@/lib/prisma'
-import { RefundStatus } from '@prisma/client'
 import { Decimal } from '@prisma/client/runtime/library'
 
 /**
@@ -10,10 +9,10 @@ export class RefundService extends BaseService {
   /**
    * Get all refund requests with filters
    */
-  async getRefundRequests(filters: {
+  public async getRefundRequests(filters: {
     orderId?: string
     customerId?: string
-    status?: RefundStatus
+    status?: string
     minAmount?: number
     maxAmount?: number
     currency?: string
@@ -67,7 +66,7 @@ export class RefundService extends BaseService {
     // Convert Decimal to number for JSON serialization
     return {
       ...result,
-      data: result.data.map(refund => ({
+      data: result.data.map((refund: any) => ({
         ...refund,
         amount: Number(refund.amount),
       })),
@@ -77,8 +76,8 @@ export class RefundService extends BaseService {
   /**
    * Get a specific refund request by ID
    */
-  async getRefundById(id: string) {
-    const refund = await this.findById({
+  public async getRefundById(id: string) {
+    const refund: any = await this.findById({
       model: prisma.refundRequest,
       id,
       include: {
@@ -114,7 +113,7 @@ export class RefundService extends BaseService {
   /**
    * Add a note to a refund request
    */
-  async addRefundNote(refundId: string, authorId: string, body: string) {
+  public async addRefundNote(refundId: string, authorId: string, body: string) {
     return this.transaction(async (tx) => {
       const note = await tx.refundNote.create({
         data: {
@@ -144,13 +143,13 @@ export class RefundService extends BaseService {
   /**
    * Transition refund status
    */
-  async transitionRefund(
+  public async transitionRefund(
     refundId: string,
-    status: RefundStatus,
+    status: string,
     reason: string,
     actorId: string
   ) {
-    const currentRefund = await this.findById({
+    const currentRefund: any = await this.findById({
       model: prisma.refundRequest,
       id: refundId,
     })
@@ -186,7 +185,7 @@ export class RefundService extends BaseService {
   /**
    * Link refund to KYC case
    */
-  async linkRefundToKyc(refundId: string, kycCaseId: string, actorId: string) {
+  public async linkRefundToKyc(refundId: string, kycCaseId: string, actorId: string) {
     const refund = await this.findById({
       model: prisma.refundRequest,
       id: refundId,

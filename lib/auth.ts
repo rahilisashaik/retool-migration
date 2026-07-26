@@ -36,7 +36,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         // Validate password against stored hash
-        const isPasswordValid = await bcrypt.compare(credentials.password, user.password)
+        const isPasswordValid = user.password ? await bcrypt.compare(credentials.password, user.password) : false
 
         if (!isPasswordValid) {
           throw new Error('Invalid credentials')
