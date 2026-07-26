@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAuth, checkPermission } from '@/lib/auth-helper'
+import { PERMISSIONS } from '@/lib/permissions'
 
 // GET /api/kyc/[id] - Get a specific KYC case
 export async function GET(
@@ -7,6 +9,18 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Check authentication
+    const user = await requireAuth()
+    
+    // Check KYC read permission
+    const hasReadAccess = await checkPermission(PERMISSIONS.KYC_READ)
+    if (!hasReadAccess) {
+      return NextResponse.json(
+        { error: 'Permission denied' },
+        { status: 403 }
+      )
+    }
+
     const kycCase = await prisma.kycCase.findUnique({
       where: { id: params.id },
       include: {
@@ -33,8 +47,16 @@ export async function GET(
     }
 
     return NextResponse.json({ case: kycCase })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching KYC case:', error)
+    
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+    
     return NextResponse.json(
       { error: 'Failed to fetch KYC case' },
       { status: 500 }
