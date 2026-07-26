@@ -114,7 +114,7 @@ model RefundRequest {
   id          String       @id @default(cuid())
   orderId     String
   customerId  String
-  amount      Float
+  amount      Decimal      @db.Decimal(10, 2)
   currency    String       @default("USD")
   reason      String
   status      RefundStatus @default(PENDING)

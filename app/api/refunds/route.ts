@@ -4,6 +4,7 @@ import { refundFilterSchema, handleValidationError } from '@/lib/validations'
 import { requireAuth, checkPermission } from '@/lib/auth-helper'
 import { PERMISSIONS } from '@/lib/permissions'
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { Decimal } from '@prisma/client/runtime/library'
 
 // GET /api/refunds - List refund requests with filters
 export async function GET(request: NextRequest) {
@@ -30,8 +31,8 @@ export async function GET(request: NextRequest) {
       orderId: searchParams.get('orderId') || undefined,
       customerId: searchParams.get('customerId') || undefined,
       status: searchParams.get('status') || undefined,
-      minAmount: searchParams.get('minAmount') ? Number(searchParams.get('minAmount')) : undefined,
-      maxAmount: searchParams.get('maxAmount') ? Number(searchParams.get('maxAmount')) : undefined,
+      minAmount: searchParams.get('minAmount') ? new Decimal(searchParams.get('minAmount')!) : undefined,
+      maxAmount: searchParams.get('maxAmount') ? new Decimal(searchParams.get('maxAmount')!) : undefined,
       currency: searchParams.get('currency') || undefined,
       fromDate: searchParams.get('fromDate') || undefined,
       toDate: searchParams.get('toDate') || undefined,
@@ -76,7 +77,13 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     })
 
-    return NextResponse.json({ refunds })
+    // Convert Decimal to number for JSON serialization
+    const serializedRefunds = refunds.map(refund => ({
+      ...refund,
+      amount: Number(refund.amount),
+    }))
+
+    return NextResponse.json({ refunds: serializedRefunds })
   } catch (error: any) {
     console.error('Error fetching refund requests:', error)
     

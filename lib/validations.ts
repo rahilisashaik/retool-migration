@@ -41,7 +41,7 @@ export const kycNoteSchema = z.object({
 export const refundFilterSchema = z.object({
   orderId: z.string().optional(),
   customerId: z.string().optional(),
-  status: z.string().optional(),
+  status: z.nativeEnum(RefundStatus).optional(),
   minAmount: z.number().optional(),
   maxAmount: z.number().optional(),
   currency: z.string().optional(),
