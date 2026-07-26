@@ -1,10 +1,12 @@
 // Role-based permission constants
+import { UserRole } from '@prisma/client'
+
 export const ROLES = {
-  ADMIN: 'ADMIN',
-  KYC_ANALYST: 'KYC_ANALYST',
-  SUPPORT_AGENT: 'SUPPORT_AGENT',
-  PRODUCT_ENGINEER: 'PRODUCT_ENGINEER',
-  VIEWER: 'VIEWER',
+  ADMIN: UserRole.ADMIN,
+  KYC_ANALYST: UserRole.KYC_ANALYST,
+  SUPPORT_AGENT: UserRole.SUPPORT_AGENT,
+  PRODUCT_ENGINEER: UserRole.PRODUCT_ENGINEER,
+  VIEWER: UserRole.VIEWER,
 } as const
 
 export const PERMISSIONS = {

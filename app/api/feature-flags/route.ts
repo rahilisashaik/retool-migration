@@ -4,6 +4,7 @@ import { featureFlagFilterSchema, featureFlagCreateSchema, handleValidationError
 import { requireAuth, checkPermission, requirePermissionCheck } from '@/lib/auth-helper'
 import { PERMISSIONS } from '@/lib/permissions'
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { FeatureFlagState } from '@prisma/client'
 
 // GET /api/feature-flags - List feature flags with filters
 export async function GET(request: NextRequest) {
@@ -112,6 +113,7 @@ export async function POST(request: NextRequest) {
         data: {
           ...data,
           ownerId: user.id,
+          state: data.state || FeatureFlagState.DISABLED,
         },
         include: {
           owner: {

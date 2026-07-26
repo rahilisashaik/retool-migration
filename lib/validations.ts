@@ -1,6 +1,9 @@
 import { z } from 'zod'
 import { NextResponse } from 'next/server'
 
+// Import Prisma enums for type-safe validation
+import { UserRole, KycStatus, RefundStatus, Environment, FeatureFlagType, FeatureFlagState, NotificationType } from '@prisma/client'
+
 // Validation error handler
 export function handleValidationError(error: any) {
   if (error instanceof z.ZodError) {
@@ -26,7 +29,7 @@ export const kycCaseFilterSchema = z.object({
 })
 
 export const kycCaseTransitionSchema = z.object({
-  status: z.enum(['PENDING', 'APPROVED', 'REJECTED', 'ESCALATED']),
+  status: z.nativeEnum(KycStatus),
   reason: z.string().min(1, 'Reason is required'),
 })
 
@@ -47,7 +50,7 @@ export const refundFilterSchema = z.object({
 })
 
 export const refundTransitionSchema = z.object({
-  status: z.enum(['PENDING', 'APPROVED', 'DENIED', 'ON_HOLD', 'PROCESSED']),
+  status: z.nativeEnum(RefundStatus),
   reason: z.string().min(1, 'Reason is required'),
 })
 
@@ -71,9 +74,9 @@ export const featureFlagCreateSchema = z.object({
   key: z.string().min(1, 'Key is required').regex(/^[a-z0-9_]+$/, 'Key must be lowercase alphanumeric with underscores'),
   name: z.string().min(1, 'Name is required'),
   description: z.string().optional(),
-  environment: z.enum(['PRODUCTION', 'STAGING']),
-  type: z.enum(['BOOLEAN', 'PERCENTAGE', 'SEGMENT']),
-  state: z.enum(['ENABLED', 'DISABLED']).default('DISABLED'),
+  environment: z.nativeEnum(Environment),
+  type: z.nativeEnum(FeatureFlagType),
+  state: z.nativeEnum(FeatureFlagState).optional(),
   rolloutPercentage: z.number().min(0).max(100).default(0),
   targetSegment: z.string().optional(),
 })
@@ -81,7 +84,7 @@ export const featureFlagCreateSchema = z.object({
 export const featureFlagUpdateSchema = z.object({
   name: z.string().min(1, 'Name is required').optional(),
   description: z.string().optional(),
-  state: z.enum(['ENABLED', 'DISABLED']).optional(),
+  state: z.nativeEnum(FeatureFlagState).optional(),
   rolloutPercentage: z.number().min(0).max(100).optional(),
   targetSegment: z.string().optional(),
   reason: z.string().optional(),
