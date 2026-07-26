@@ -1,0 +1,166 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      String   @default("VIEWER")
+  team      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  reviewedKycCases    KycCase[]       @relation("KycReviewer")
+  ownedFeatureFlags   FeatureFlag[]   @relation("FlagOwner")
+  auditEvents         AuditEvent[]
+  notifications       Notification[]
+  kycNotes            KycNote[]
+  refundNotes         RefundNote[]
+  flagChanges         FeatureFlagChange[]
+}
+
+model KycCase {
+  id          String   @id @default(cuid())
+  customerId  String
+  status      String   @default("PENDING")
+  riskScore   Int
+  submittedAt DateTime
+  reviewedAt  DateTime?
+  reviewerId  String?
+  notes       KycNote[]
+  documents   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  reviewer      User?         @relation("KycReviewer", fields: [reviewerId], references: [id])
+  linkedRefunds RefundRequest[]
+
+  @@index([status, riskScore])
+  @@index([customerId])
+  @@index([reviewerId])
+}
+
+model KycNote {
+  id        String   @id @default(cuid())
+  caseId    String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  // Relations
+  case   KycCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  author User    @relation(fields: [authorId], references: [id])
+}
+
+model RefundRequest {
+  id          String   @id @default(cuid())
+  orderId     String
+  customerId  String
+  amount      Float
+  currency    String   @default("USD")
+  reason      String
+  status      String   @default("PENDING")
+  kycCaseId   String?
+  notes       RefundNote[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  kycCase     KycCase?    @relation(fields: [kycCaseId], references: [id])
+
+  @@index([customerId, status])
+  @@index([orderId])
+  @@index([status])
+}
+
+model RefundNote {
+  id        String   @id @default(cuid())
+  refundId  String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  // Relations
+  refund RefundRequest @relation(fields: [refundId], references: [id], onDelete: Cascade)
+  author User          @relation(fields: [authorId], references: [id])
+}
+
+model FeatureFlag {
+  id                String   @id @default(cuid())
+  key               String   @unique
+  name              String
+  description       String?
+  environment       String
+  type              String
+  state             String   @default("DISABLED")
+  rolloutPercentage Int      @default(0)
+  targetSegment     String?
+  ownerId           String
+  changes           FeatureFlagChange[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  owner User @relation("FlagOwner", fields: [ownerId], references: [id])
+
+  @@index([environment, state])
+  @@index([key])
+}
+
+model FeatureFlagChange {
+  id        String   @id @default(cuid())
+  flagId    String
+  actorId   String
+  field     String
+  oldValue  String?
+  newValue  String?
+  reason    String?
+  createdAt DateTime @default(now())
+
+  // Relations
+  flag FeatureFlag @relation(fields: [flagId], references: [id], onDelete: Cascade)
+  actor User @relation(fields: [actorId], references: [id])
+
+  @@index([flagId])
+}
+
+model AuditEvent {
+  id           String   @id @default(cuid())
+  actorId      String
+  action       String
+  resourceType String
+  resourceId   String
+  metadata     String?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  // Relations
+  actor User @relation(fields: [actorId], references: [id])
+
+  @@index([resourceType, resourceId])
+  @@index([actorId])
+  @@index([createdAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+}
