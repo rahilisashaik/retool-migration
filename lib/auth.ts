@@ -1,6 +1,8 @@
 import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import { prisma } from '@/lib/prisma'
+import bcrypt from 'bcryptjs'
+import { UserRole } from '@prisma/client'
 
 export const authOptions: NextAuthOptions = {
   session: {
@@ -33,9 +35,8 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Invalid credentials')
         }
 
-        // For demo: accept any password for seeded users
-        // In production: use bcrypt.compare(credentials.password, user.password)
-        const isPasswordValid = true // await bcrypt.compare(credentials.password, user.password)
+        // Validate password against stored hash
+        const isPasswordValid = user.password ? await bcrypt.compare(credentials.password, user.password) : false
 
         if (!isPasswordValid) {
           throw new Error('Invalid credentials')
@@ -45,7 +46,7 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           email: user.email,
           name: user.name,
-          role: user.role,
+          role: user.role as string,
         }
       },
     }),

@@ -1,79 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { refundNoteSchema } from '@/lib/validations'
-import { requireAuth, requirePermissionCheck } from '@/lib/auth-helper'
 import { PERMISSIONS } from '@/lib/permissions'
+import { refundService } from '@/lib/services/refund.service'
+import { withMutationHandler } from '@/lib/api-wrapper'
 
 // POST /api/refunds/[id]/notes - Add a note to a refund request
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    // Check authentication and permissions
-    const user = await requirePermissionCheck(PERMISSIONS.REFUND_WRITE)
+export const POST = withMutationHandler({
+  permission: PERMISSIONS.REFUND_WRITE,
+  service: refundService
+}, async (request: NextRequest, { user }: { user?: any }, { params }: { params: { id: string } }) => {
+  const body = await request.json()
+  const { body: noteBody } = refundNoteSchema.parse(body)
 
-    const body = await request.json()
-    const { body: noteBody } = refundNoteSchema.parse(body)
+  const note = await refundService.addRefundNote(params.id, user.id, noteBody)
 
-    // Verify refund exists
-    const refund = await prisma.refundRequest.findUnique({
-      where: { id: params.id },
-    })
-
-    if (!refund) {
-      return NextResponse.json(
-        { error: 'Refund request not found' },
-        { status: 404 }
-      )
-    }
-
-    // Create note
-    const note = await prisma.refundNote.create({
-      data: {
-        refundId: params.id,
-        authorId: user.id,
-        body: noteBody,
-      },
-      include: {
-        author: {
-          select: { id: true, name: true, email: true },
-        },
-      },
-    })
-
-    // Create audit event
-    await prisma.auditEvent.create({
-      data: {
-        actorId: user.id,
-        action: 'REFUND_NOTE_ADDED',
-        resourceType: 'RefundRequest',
-        resourceId: params.id,
-        metadata: JSON.stringify({ noteId: note.id }),
-      },
-    })
-
-    return NextResponse.json({ note })
-  } catch (error: any) {
-    console.error('Error adding refund note:', error)
-    
-    if (error.message === 'Unauthorized') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-    
-    if (error.message.includes('Permission denied')) {
-      return NextResponse.json(
-        { error: 'Permission denied' },
-        { status: 403 }
-      )
-    }
-    
-    return NextResponse.json(
-      { error: 'Failed to add note' },
-      { status: 500 }
-    )
-  }
-}
+  return NextResponse.json({ note })
+})

@@ -3,15 +3,62 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// Enums for type-safe status/state fields
+enum UserRole {
+  ADMIN
+  KYC_ANALYST
+  SUPPORT_AGENT
+  PRODUCT_ENGINEER
+  VIEWER
+}
+
+enum KycStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ESCALATED
+}
+
+enum RefundStatus {
+  PENDING
+  APPROVED
+  DENIED
+  ON_HOLD
+  PROCESSED
+}
+
+enum Environment {
+  PRODUCTION
+  STAGING
+}
+
+enum FeatureFlagType {
+  BOOLEAN
+  PERCENTAGE
+  SEGMENT
+}
+
+enum FeatureFlagState {
+  ENABLED
+  DISABLED
+}
+
+enum NotificationType {
+  KYC_ASSIGNMENT
+  REFUND_UPDATE
+  FEATURE_FLAG_CHANGE
+  SYSTEM_ALERT
 }
 
 model User {
   id            String   @id @default(cuid())
   email         String   @unique
   name          String
-  role          String   @default("VIEWER")
+  role          UserRole @default(VIEWER)
   team          String?
   password      String?  // For credentials provider
   emailVerified DateTime?
@@ -30,17 +77,17 @@ model User {
 }
 
 model KycCase {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   customerId  String
-  status      String   @default("PENDING")
+  status      KycStatus @default(PENDING)
   riskScore   Int
   submittedAt DateTime
   reviewedAt  DateTime?
   reviewerId  String?
   notes       KycNote[]
   documents   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   // Relations
   reviewer      User?         @relation("KycReviewer", fields: [reviewerId], references: [id])
@@ -64,17 +111,17 @@ model KycNote {
 }
 
 model RefundRequest {
-  id          String   @id @default(cuid())
+  id          String       @id @default(cuid())
   orderId     String
   customerId  String
-  amount      Float
-  currency    String   @default("USD")
+  amount      Decimal      @db.Decimal(10, 2)
+  currency    String       @default("USD")
   reason      String
-  status      String   @default("PENDING")
+  status      RefundStatus @default(PENDING)
   kycCaseId   String?
   notes       RefundNote[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   // Relations
   kycCase     KycCase?    @relation(fields: [kycCaseId], references: [id])
@@ -97,19 +144,19 @@ model RefundNote {
 }
 
 model FeatureFlag {
-  id                String   @id @default(cuid())
-  key               String   @unique
+  id                String          @id @default(cuid())
+  key               String          @unique
   name              String
   description       String?
-  environment       String
-  type              String
-  state             String   @default("DISABLED")
-  rolloutPercentage Int      @default(0)
+  environment       Environment
+  type              FeatureFlagType
+  state             FeatureFlagState @default(DISABLED)
+  rolloutPercentage Int             @default(0)
   targetSegment     String?
   ownerId           String
   changes           FeatureFlagChange[]
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
   // Relations
   owner User @relation("FlagOwner", fields: [ownerId], references: [id])
@@ -155,12 +202,12 @@ model AuditEvent {
 }
 
 model Notification {
-  id        String   @id @default(cuid())
+  id        String           @id @default(cuid())
   userId    String
-  type      String
+  type      NotificationType
   message   String
-  read      Boolean  @default(false)
-  createdAt DateTime @default(now())
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
 
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
