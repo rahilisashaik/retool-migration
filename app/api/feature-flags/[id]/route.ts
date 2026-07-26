@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { featureFlagUpdateSchema } from '@/lib/validations'
+import { requireAuth, checkPermission, requirePermissionCheck } from '@/lib/auth-helper'
+import { PERMISSIONS } from '@/lib/permissions'
 
 // GET /api/feature-flags/[id] - Get a specific feature flag
 export async function GET(
@@ -8,6 +10,18 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Check authentication
+    const user = await requireAuth()
+    
+    // Check flag read permission
+    const hasReadAccess = await checkPermission(PERMISSIONS.FLAG_READ)
+    if (!hasReadAccess) {
+      return NextResponse.json(
+        { error: 'Permission denied' },
+        { status: 403 }
+      )
+    }
+
     const flag = await prisma.featureFlag.findUnique({
       where: { id: params.id },
       include: {
@@ -33,8 +47,16 @@ export async function GET(
     }
 
     return NextResponse.json({ flag })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching feature flag:', error)
+    
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+    
     return NextResponse.json(
       { error: 'Failed to fetch feature flag' },
       { status: 500 }
@@ -48,6 +70,9 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Check authentication and permissions
+    const user = await requirePermissionCheck(PERMISSIONS.FLAG_WRITE)
+
     const body = await request.json()
     const data = featureFlagUpdateSchema.parse(body)
 
@@ -99,16 +124,12 @@ export async function PATCH(
       },
     })
 
-    // Create change records and audit events (using admin user for now)
-    const adminUser = await prisma.user.findFirst({
-      where: { role: 'ADMIN' },
-    })
-    
+    // Create change records and audit events
     for (const change of changes) {
       await prisma.featureFlagChange.create({
         data: {
           flagId: params.id,
-          actorId: adminUser?.id || 'system',
+          actorId: user.id,
           field: change.field,
           oldValue: String(change.oldValue),
           newValue: String(change.newValue),
@@ -120,7 +141,7 @@ export async function PATCH(
     // Create audit event
     await prisma.auditEvent.create({
       data: {
-        actorId: adminUser?.id || 'system',
+        actorId: user.id,
         action: 'FEATURE_FLAG_UPDATED',
         resourceType: 'FeatureFlag',
         resourceId: params.id,
@@ -129,8 +150,23 @@ export async function PATCH(
     })
 
     return NextResponse.json({ flag: updatedFlag })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating feature flag:', error)
+    
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+    
+    if (error.message.includes('Permission denied')) {
+      return NextResponse.json(
+        { error: 'Permission denied' },
+        { status: 403 }
+      )
+    }
+    
     return NextResponse.json(
       { error: 'Failed to update feature flag' },
       { status: 500 }
@@ -144,6 +180,9 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Check authentication and permissions
+    const user = await requirePermissionCheck(PERMISSIONS.FLAG_DELETE)
+
     const flag = await prisma.featureFlag.findUnique({
       where: { id: params.id },
     })
@@ -159,14 +198,10 @@ export async function DELETE(
       where: { id: params.id },
     })
 
-    // Create audit event (using admin user for now)
-    const adminUser = await prisma.user.findFirst({
-      where: { role: 'ADMIN' },
-    })
-    
+    // Create audit event
     await prisma.auditEvent.create({
       data: {
-        actorId: adminUser?.id || 'system',
+        actorId: user.id,
         action: 'FEATURE_FLAG_DELETED',
         resourceType: 'FeatureFlag',
         resourceId: params.id,
@@ -175,8 +210,23 @@ export async function DELETE(
     })
 
     return NextResponse.json({ success: true })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error deleting feature flag:', error)
+    
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+    
+    if (error.message.includes('Permission denied')) {
+      return NextResponse.json(
+        { error: 'Permission denied' },
+        { status: 403 }
+      )
+    }
+    
     return NextResponse.json(
       { error: 'Failed to delete feature flag' },
       { status: 500 }

@@ -24,6 +24,7 @@ async function main() {
         name: 'Admin User',
         role: 'ADMIN',
         team: 'Engineering',
+        password: 'password123', // In production, this should be hashed
       },
     }),
     prisma.user.create({
@@ -32,6 +33,7 @@ async function main() {
         name: 'KYC Analyst',
         role: 'KYC_ANALYST',
         team: 'Compliance',
+        password: 'password123',
       },
     }),
     prisma.user.create({
@@ -40,6 +42,7 @@ async function main() {
         name: 'Support Agent',
         role: 'SUPPORT_AGENT',
         team: 'Customer Success',
+        password: 'password123',
       },
     }),
     prisma.user.create({
@@ -48,6 +51,7 @@ async function main() {
         name: 'Product Engineer',
         role: 'PRODUCT_ENGINEER',
         team: 'Product',
+        password: 'password123',
       },
     }),
     prisma.user.create({
@@ -56,11 +60,12 @@ async function main() {
         name: 'Viewer User',
         role: 'VIEWER',
         team: 'Operations',
+        password: 'password123',
       },
     }),
   ])
 
-  console.log(`✅ Created ${users.length} users`)
+  console.log(`Created ${users.length} users`)
 
   // Create KYC cases
   const kycCases = await Promise.all([
