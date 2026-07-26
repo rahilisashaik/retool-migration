@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { featureFlagUpdateSchema, handleValidationError } from '@/lib/validations'
 import { requireAuth, checkPermission, requirePermissionCheck } from '@/lib/auth-helper'
 import { PERMISSIONS } from '@/lib/permissions'
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 // GET /api/feature-flags/[id] - Get a specific feature flag
 export async function GET(
@@ -10,6 +11,10 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Apply rate limiting
+    const rateLimitResponse = await applyRateLimit(request, 'READ')
+    if (rateLimitResponse) return rateLimitResponse
+
     // Check authentication
     const user = await requireAuth()
     
@@ -70,6 +75,10 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Apply rate limiting
+    const rateLimitResponse = await applyRateLimit(request, 'MUTATION')
+    if (rateLimitResponse) return rateLimitResponse
+
     // Check authentication and permissions
     const user = await requirePermissionCheck(PERMISSIONS.FLAG_WRITE)
 
@@ -188,6 +197,10 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Apply rate limiting
+    const rateLimitResponse = await applyRateLimit(request, 'MUTATION')
+    if (rateLimitResponse) return rateLimitResponse
+
     // Check authentication and permissions
     const user = await requirePermissionCheck(PERMISSIONS.FLAG_DELETE)
 

@@ -3,10 +3,15 @@ import { prisma } from '@/lib/prisma'
 import { refundFilterSchema, handleValidationError } from '@/lib/validations'
 import { requireAuth, checkPermission } from '@/lib/auth-helper'
 import { PERMISSIONS } from '@/lib/permissions'
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 // GET /api/refunds - List refund requests with filters
 export async function GET(request: NextRequest) {
   try {
+    // Apply rate limiting
+    const rateLimitResponse = await applyRateLimit(request, 'READ')
+    if (rateLimitResponse) return rateLimitResponse
+
     // Check authentication
     const user = await requireAuth()
     

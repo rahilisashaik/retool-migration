@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth, checkPermission } from '@/lib/auth-helper'
 import { PERMISSIONS } from '@/lib/permissions'
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 // GET /api/kyc/[id] - Get a specific KYC case
 export async function GET(
@@ -9,6 +10,10 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Apply rate limiting
+    const rateLimitResponse = await applyRateLimit(request, 'READ')
+    if (rateLimitResponse) return rateLimitResponse
+
     // Check authentication
     const user = await requireAuth()
     

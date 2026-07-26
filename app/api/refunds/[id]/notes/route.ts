@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { refundNoteSchema, handleValidationError } from '@/lib/validations'
 import { requireAuth, requirePermissionCheck } from '@/lib/auth-helper'
 import { PERMISSIONS } from '@/lib/permissions'
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 // POST /api/refunds/[id]/notes - Add a note to a refund request
 export async function POST(
@@ -10,6 +11,10 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Apply rate limiting
+    const rateLimitResponse = await applyRateLimit(request, 'MUTATION')
+    if (rateLimitResponse) return rateLimitResponse
+
     // Check authentication and permissions
     const user = await requirePermissionCheck(PERMISSIONS.REFUND_WRITE)
 

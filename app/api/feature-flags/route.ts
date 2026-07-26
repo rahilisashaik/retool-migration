@@ -3,10 +3,15 @@ import { prisma } from '@/lib/prisma'
 import { featureFlagFilterSchema, featureFlagCreateSchema, handleValidationError } from '@/lib/validations'
 import { requireAuth, checkPermission, requirePermissionCheck } from '@/lib/auth-helper'
 import { PERMISSIONS } from '@/lib/permissions'
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 // GET /api/feature-flags - List feature flags with filters
 export async function GET(request: NextRequest) {
   try {
+    // Apply rate limiting
+    const rateLimitResponse = await applyRateLimit(request, 'READ')
+    if (rateLimitResponse) return rateLimitResponse
+
     // Check authentication
     const user = await requireAuth()
     
@@ -79,6 +84,10 @@ export async function GET(request: NextRequest) {
 // POST /api/feature-flags - Create a new feature flag
 export async function POST(request: NextRequest) {
   try {
+    // Apply rate limiting
+    const rateLimitResponse = await applyRateLimit(request, 'MUTATION')
+    if (rateLimitResponse) return rateLimitResponse
+
     // Check authentication and permissions
     const user = await requirePermissionCheck(PERMISSIONS.FLAG_WRITE)
 
