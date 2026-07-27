@@ -100,7 +100,8 @@ async function createFeatureFlag(data: FeatureFlagCreateData): Promise<FeatureFl
     body: JSON.stringify(data),
   })
   if (!response.ok) {
-    throw new Error('Failed to create feature flag')
+    const errorData = await response.json()
+    throw new Error(errorData.error || errorData.details || 'Failed to create feature flag')
   }
   const result = await response.json()
   return result.flag
@@ -136,7 +137,7 @@ export function useFeatureFlags(filters?: FeatureFlagFilters) {
     queryKey: ['feature-flags', filters],
     queryFn: () => fetchFeatureFlags(filters),
     enabled: !!session,
-    staleTime: 3 * 60 * 1000,
+    staleTime: 0,
     gcTime: 15 * 60 * 1000,
   })
 }
@@ -148,6 +149,7 @@ export function useFeatureFlag(id: string) {
     queryKey: ['feature-flag', id],
     queryFn: () => fetchFeatureFlag(id),
     enabled: !!session && !!id,
+    staleTime: 0,
   })
 }
 
@@ -158,6 +160,7 @@ export function useFeatureFlagCreate() {
     mutationFn: (data: FeatureFlagCreateData) => createFeatureFlag(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['feature-flags'] })
+      queryClient.refetchQueries({ queryKey: ['feature-flags'] })
     },
   })
 }
@@ -171,6 +174,8 @@ export function useFeatureFlagUpdate() {
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['feature-flags'] })
       queryClient.invalidateQueries({ queryKey: ['feature-flag', variables.id] })
+      queryClient.refetchQueries({ queryKey: ['feature-flags'] })
+      queryClient.refetchQueries({ queryKey: ['feature-flag', variables.id] })
     },
   })
 }
@@ -182,6 +187,7 @@ export function useFeatureFlagDelete() {
     mutationFn: (id: string) => deleteFeatureFlag(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['feature-flags'] })
+      queryClient.refetchQueries({ queryKey: ['feature-flags'] })
     },
   })
 }

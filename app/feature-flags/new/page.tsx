@@ -34,8 +34,9 @@ export default function NewFeatureFlagPage() {
     try {
       const result = await createMutation.mutateAsync(form)
       router.push(`/feature-flags/${result.id}`)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to create flag:', error)
+      alert(`Failed to create flag: ${error.message || 'Unknown error'}`)
     }
   }
 
@@ -65,7 +66,7 @@ export default function NewFeatureFlagPage() {
           </div>
         </div>
 
-        <Card className="max-w-2xl">
+        <Card className="max-w-8xl">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <Input

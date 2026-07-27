@@ -56,9 +56,7 @@ export function useDashboardStats() {
     queryKey: ['dashboard-stats'],
     queryFn: fetchDashboardStats,
     enabled: !!session,
-    // Dashboard stats can be cached longer - refresh every 2 minutes
-    staleTime: 2 * 60 * 1000,
-    // Keep cache for 10 minutes
+    staleTime: 0,
     gcTime: 10 * 60 * 1000,
   })
 }

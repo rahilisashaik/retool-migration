@@ -135,6 +135,7 @@ export class RefundService extends BaseService {
         resourceType: 'RefundRequest',
         resourceId: refundId,
         metadata: { noteId: note.id },
+        tx,
       })
 
       return note
@@ -177,6 +178,7 @@ export class RefundService extends BaseService {
           newStatus: status,
           reason,
         },
+        tx,
       })
 
       return updatedRefund
@@ -228,6 +230,7 @@ export class RefundService extends BaseService {
         resourceType: 'RefundRequest',
         resourceId: refundId,
         metadata: { kycCaseId },
+        tx,
       })
 
       return updatedRefund

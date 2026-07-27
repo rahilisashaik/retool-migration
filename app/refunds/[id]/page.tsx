@@ -44,6 +44,7 @@ export default function RefundDetailPage({ params }: { params: { id: string } })
       })
       setShowTransitionModal(false)
       setReason('')
+      router.push('/refunds')
     } catch (error) {
       console.error('Failed to transition refund:', error)
     }

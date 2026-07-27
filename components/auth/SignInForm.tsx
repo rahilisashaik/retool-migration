@@ -105,11 +105,12 @@ export const SignInForm: React.FC<SignInFormProps> = ({
             Demo credentials available
           </p>
           <div className="demo-list">
-            <p>admin@company.com</p>
-            <p>kyc.analyst@company.com</p>
-            <p>support.agent@company.com</p>
-            <p>product.engineer@company.com</p>
-            <p className="demo-password">Password: password123</p>
+            <p>admin@bread.ai (Admin)</p>
+            <p>kyc@bread.ai (KYC Analyst)</p>
+            <p>support@bread.ai (Support Agent)</p>
+            <p>product@bread.ai (Product Engineer)</p>
+            <p>viewer@bread.ai (Viewer)</p>
+            <p className="demo-password">Password: use your role (e.g., admin123, kyc123, support123, product123, viewer123)</p>
           </div>
         </div>
       )}
