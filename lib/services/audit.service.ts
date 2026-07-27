@@ -1,5 +1,6 @@
 import { BaseService } from './base.service'
 import { prisma } from '@/lib/prisma'
+import { parseStartOfDay, parseEndOfDay } from '@/lib/utils'
 
 /**
  * Audit Service - Handles all audit-related business logic
@@ -26,8 +27,8 @@ export class AuditService extends BaseService {
     if (filters.resourceId) where.resourceId = filters.resourceId
     if (filters.fromDate || filters.toDate) {
       where.createdAt = {}
-      if (filters.fromDate) where.createdAt.gte = new Date(filters.fromDate)
-      if (filters.toDate) where.createdAt.lte = new Date(filters.toDate)
+      if (filters.fromDate) where.createdAt.gte = parseStartOfDay(filters.fromDate)
+      if (filters.toDate) where.createdAt.lte = parseEndOfDay(filters.toDate)
     }
 
     return this.findMany({

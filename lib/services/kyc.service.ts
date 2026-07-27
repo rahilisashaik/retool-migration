@@ -1,6 +1,7 @@
 import { BaseService } from './base.service'
 import { prisma } from '@/lib/prisma'
 import { KycStatus } from '@prisma/client'
+import { parseStartOfDay, parseEndOfDay } from '@/lib/utils'
 
 /**
  * KYC Service - Handles all KYC-related business logic
@@ -30,8 +31,8 @@ export class KycService extends BaseService {
     if (filters.assigneeId) where.reviewerId = filters.assigneeId
     if (filters.fromDate || filters.toDate) {
       where.submittedAt = {}
-      if (filters.fromDate) where.submittedAt.gte = new Date(filters.fromDate)
-      if (filters.toDate) where.submittedAt.lte = new Date(filters.toDate)
+      if (filters.fromDate) where.submittedAt.gte = parseStartOfDay(filters.fromDate)
+      if (filters.toDate) where.submittedAt.lte = parseEndOfDay(filters.toDate)
     }
 
     return this.findMany({
