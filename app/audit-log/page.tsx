@@ -63,7 +63,7 @@ export default function AuditLogPage() {
               { key: 'details', header: 'Details', className: 'px-4 py-3' },
             ]}
           >
-            {events.map((event) => (
+            {events?.map((event) => (
               <TableRow key={event.id}>
                 <TableCell className="px-4 py-3">
                   <div className="flex items-center gap-2">

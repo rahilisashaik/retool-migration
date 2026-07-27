@@ -3,7 +3,7 @@ import { ReactNode } from 'react'
 
 interface StateContainerProps {
   isLoading?: boolean
-  error?: string | null
+  error?: string | Error | null
   isEmpty?: boolean
   loadingMessage?: string
   errorMessage?: string
@@ -35,9 +35,10 @@ export function StateContainer({
   }
 
   if (error) {
+    const displayError = error instanceof Error ? error.message : errorMessage
     return (
       <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-300">
-        {errorMessage}
+        {displayError}
       </div>
     )
   }

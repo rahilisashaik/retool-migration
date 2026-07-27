@@ -58,7 +58,7 @@ export default function RefundsPage() {
               { key: 'actions', header: 'Actions' },
             ]}
           >
-            {refunds.map((refund) => (
+            {refunds?.map((refund) => (
               <TableRow key={refund.id}>
                 <TableCell>
                   <span className="font-mono text-sm">{refund.orderId}</span>
@@ -99,10 +99,7 @@ export default function RefundsPage() {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Button
-                    size="sm"
-                    onClick={() => router.push(`/refunds/${refund.id}`)}
-                  >
+                  <Button size="sm" onClick={() => router.push(`/refunds/${refund.id}`)}>
                     Review
                   </Button>
                 </TableCell>

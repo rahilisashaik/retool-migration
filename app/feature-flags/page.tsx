@@ -83,7 +83,7 @@ export default function FeatureFlagsPage() {
               { key: 'actions', header: 'Actions', className: 'px-4 py-3' },
             ]}
           >
-            {flags.map((flag) => (
+            {flags?.map((flag) => (
               <TableRow key={flag.id}>
                 <TableCell className="px-4 py-3">
                   <span className="font-mono text-sm">{flag.key}</span>

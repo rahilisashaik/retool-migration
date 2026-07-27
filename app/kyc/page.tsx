@@ -58,7 +58,7 @@ export default function KycQueuePage() {
               { key: 'actions', header: 'Actions' },
             ]}
           >
-            {cases.map((kycCase) => (
+            {cases?.map((kycCase) => (
               <TableRow key={kycCase.id}>
                 <TableCell>
                   <div className="flex items-center gap-2">
@@ -84,10 +84,7 @@ export default function KycQueuePage() {
                   </span>
                 </TableCell>
                 <TableCell>
-                  <Button
-                    size="sm"
-                    onClick={() => router.push(`/kyc/${kycCase.id}`)}
-                  >
+                  <Button size="sm" onClick={() => router.push(`/kyc/${kycCase.id}`)}>
                     Review
                   </Button>
                 </TableCell>
