@@ -6,14 +6,15 @@ import { useRouter } from 'next/navigation'
 import { Navigation } from '@/components/layout/Navigation'
 import { RefundStatusBadge } from '@/components/refunds/RefundStatusBadge'
 import { Button, Input, Card, Modal, Select } from '@/components/ui'
+import { BackButton, InfoField, NotesSection } from '@/components/shared'
 import { useRefundRequest, useRefundTransition, useRefundNote, useRefundLinkKyc } from '@/hooks/use-refund-requests'
-import { DollarSign, User, Calendar, FileText, ArrowLeft, Check, X, AlertTriangle, MessageSquare, Shield, Link } from 'lucide-react'
+import { DollarSign, User, Calendar, FileText, Check, X, AlertTriangle, Shield, Link } from 'lucide-react'
+import { formatDate, formatCurrency } from '@/lib/utils/formatters'
 
 export default function RefundDetailPage({ params }: { params: { id: string } }) {
   const { data: session } = useSession()
   const router = useRouter()
   const [reason, setReason] = useState('')
-  const [noteBody, setNoteBody] = useState('')
   const [showTransitionModal, setShowTransitionModal] = useState(false)
   const [transitionStatus, setTransitionStatus] = useState('')
   const [showLinkKycModal, setShowLinkKycModal] = useState(false)
@@ -50,16 +51,14 @@ export default function RefundDetailPage({ params }: { params: { id: string } })
     }
   }
 
-  const handleAddNote = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!noteBody.trim()) return
+  const handleAddNote = async (body: string) => {
+    if (!body.trim()) return
 
     try {
       await noteMutation.mutate({
         id: params.id,
-        body: noteBody,
+        body,
       })
-      setNoteBody('')
     } catch (error) {
       console.error('Failed to add note:', error)
     }
@@ -112,14 +111,7 @@ export default function RefundDetailPage({ params }: { params: { id: string } })
       
       <div className="page-content">
         <div className="mb-6">
-          <Button
-            variant="ghost"
-            onClick={() => router.push('/refunds')}
-            className="mb-4"
-          >
-            <ArrowLeft size={16} className="mr-2" />
-            Back to Refunds
-          </Button>
+          <BackButton href="/refunds" label="Back to Refunds" />
 
           <div className="flex items-center justify-between">
             <div>
@@ -144,20 +136,16 @@ export default function RefundDetailPage({ params }: { params: { id: string } })
                 <label className="block text-sm text-gray-400 mb-2">Order ID</label>
                 <span className="text-white font-mono break-all">{refund.orderId}</span>
               </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">Customer ID</label>
-                <div className="flex items-center gap-2 text-white">
-                  <User size={16} className="text-gray-400" />
-                  <span className="font-mono break-all">{refund.customerId}</span>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">Amount</label>
-                <div className="flex items-center gap-2 text-white">
-                  <DollarSign size={16} className="text-gray-400" />
-                  <span className="font-mono">{refund.amount.toFixed(2)} {refund.currency}</span>
-                </div>
-              </div>
+              <InfoField
+                label="Customer ID"
+                value={refund.customerId}
+                icon={User}
+              />
+              <InfoField
+                label="Amount"
+                value={formatCurrency(refund.amount, refund.currency)}
+                icon={DollarSign}
+              />
               <div>
                 <label className="block text-sm text-gray-400 mb-2">Status</label>
                 <RefundStatusBadge status={refund.status} />
@@ -166,13 +154,11 @@ export default function RefundDetailPage({ params }: { params: { id: string } })
                 <label className="block text-sm text-gray-400 mb-2">Reason</label>
                 <p className="text-white break-words">{refund.reason}</p>
               </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">Submitted</label>
-                <div className="flex items-center gap-2 text-white">
-                  <Calendar size={16} className="text-gray-400" />
-                  <span className="break-all">{new Date(refund.createdAt).toLocaleString()}</span>
-                </div>
-              </div>
+              <InfoField
+                label="Submitted"
+                value={formatDate(refund.createdAt)}
+                icon={Calendar}
+              />
               <div>
                 <label className="block text-sm text-gray-400 mb-2">KYC Case</label>
                 {refund.kycCase ? (
@@ -237,47 +223,11 @@ export default function RefundDetailPage({ params }: { params: { id: string } })
         </div>
 
         {/* Notes Section */}
-        <Card className="mb-6">
-          <div className="flex items-center gap-2 mb-6">
-            <MessageSquare size={24} className="text-blue-400" />
-            <h2 className="text-xl font-semibold text-white">Notes</h2>
-          </div>
-
-          <form onSubmit={handleAddNote} className="mb-6">
-            <Input
-              label="Add a note"
-              value={noteBody}
-              onChange={(e) => setNoteBody(e.target.value)}
-              placeholder="Enter your note..."
-              className="mb-3"
-            />
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={noteMutation.isPending}
-            >
-              {noteMutation.isPending ? 'Adding...' : 'Add Note'}
-            </Button>
-          </form>
-
-          <div className="space-y-4">
-            {refund.notes && refund.notes.length > 0 ? (
-              refund.notes.map((note) => (
-                <div key={note.id} className="bg-white/5 rounded-lg p-4 border border-white/10">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-white">{note.author?.name}</span>
-                    <span className="text-sm text-gray-400">
-                      {new Date(note.createdAt).toLocaleString()}
-                    </span>
-                  </div>
-                  <p className="text-gray-300 break-words">{note.body}</p>
-                </div>
-              ))
-            ) : (
-              <p className="text-gray-400 text-center py-4">No notes yet</p>
-            )}
-          </div>
-        </Card>
+        <NotesSection
+          notes={refund.notes || []}
+          onAddNote={handleAddNote}
+          isAdding={noteMutation.isPending}
+        />
       </div>
 
       {/* Transition Modal */}
