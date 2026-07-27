@@ -146,11 +146,9 @@ export function useRefundTransition() {
     mutationFn: ({ id, status, reason }: { id: string; status: string; reason: string }) =>
       transitionRefundRequest(id, status, reason),
     onSuccess: (data) => {
-      // Invalidate all refund-related queries
       queryClient.invalidateQueries({ queryKey: ['refund-requests'] })
       queryClient.invalidateQueries({ queryKey: ['refund-request', data.id] })
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
-      // Force hard refetches to ensure data is fresh
       queryClient.refetchQueries({ queryKey: ['refund-requests'] })
       queryClient.refetchQueries({ queryKey: ['refund-request', data.id] })
     },
@@ -165,8 +163,6 @@ export function useRefundNote() {
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['refund-request', variables.id] })
       queryClient.invalidateQueries({ queryKey: ['refund-requests'] })
-      queryClient.refetchQueries({ queryKey: ['refund-request', variables.id] })
-      queryClient.refetchQueries({ queryKey: ['refund-requests'] })
     },
   })
 }
@@ -182,10 +178,6 @@ export function useRefundLinkKyc() {
       queryClient.invalidateQueries({ queryKey: ['refund-request', data.id] })
       queryClient.invalidateQueries({ queryKey: ['kyc-cases'] })
       queryClient.invalidateQueries({ queryKey: ['kyc-case', variables.kycCaseId] })
-      queryClient.refetchQueries({ queryKey: ['refund-requests'] })
-      queryClient.refetchQueries({ queryKey: ['refund-request', data.id] })
-      queryClient.refetchQueries({ queryKey: ['kyc-cases'] })
-      queryClient.refetchQueries({ queryKey: ['kyc-case', variables.kycCaseId] })
     },
   })
 }
