@@ -1,31 +1,19 @@
 'use client'
 
-import { useSession, signOut } from 'next-auth/react'
+import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Navigation } from '@/components/layout/Navigation'
 import { StatCard } from '@/components/ui/StatCard'
 import { QuickAccessCard } from '@/components/ui/QuickAccessCard'
 import { UserProfileCard } from '@/components/ui/UserProfileCard'
+import { useDashboardStats } from '@/hooks/use-dashboard'
 import { Search, DollarSign, Flag, Activity } from 'lucide-react'
-
-interface DashboardStats {
-  openKycCases: number
-  pendingRefunds: number
-  activeFlags: number
-  recentActivity: number
-}
 
 export default function DashboardPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [stats, setStats] = useState<DashboardStats>({
-    openKycCases: 0,
-    pendingRefunds: 0,
-    activeFlags: 0,
-    recentActivity: 0,
-  })
-  const [loading, setLoading] = useState(true)
+  const { data: stats, isLoading, error } = useDashboardStats()
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -33,53 +21,7 @@ export default function DashboardPage() {
     }
   }, [status, router])
 
-  useEffect(() => {
-    if (session) {
-      fetchDashboardStats()
-    }
-  }, [session])
-
-  const fetchDashboardStats = async () => {
-    try {
-      setLoading(true)
-      
-      // Fetch KYC cases with PENDING status
-      const kycResponse = await fetch('/api/kyc?status=PENDING')
-      const kycData = await kycResponse.json()
-      
-      // Fetch refund requests with PENDING status
-      const refundResponse = await fetch('/api/refunds?status=PENDING')
-      const refundData = await refundResponse.json()
-      
-      // Fetch active feature flags
-      const flagsResponse = await fetch('/api/feature-flags?state=ENABLED')
-      const flagsData = await flagsResponse.json()
-      
-      // Fetch recent audit events (last 24 hours)
-      const auditResponse = await fetch('/api/audit')
-      const auditData = await auditResponse.json()
-      
-      setStats({
-        openKycCases: kycData.cases?.length || 0,
-        pendingRefunds: refundData.refunds?.length || 0,
-        activeFlags: flagsData.flags?.length || 0,
-        recentActivity: auditData.events?.length || 0,
-      })
-    } catch (error) {
-      console.error('Error fetching dashboard stats:', error)
-      // Set default values on error
-      setStats({
-        openKycCases: 0,
-        pendingRefunds: 0,
-        activeFlags: 0,
-        recentActivity: 0,
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (status === 'loading' || loading) {
+  if (status === 'loading' || isLoading) {
     return (
       <div className="page-container centered-content">
         <div className="text-white">Loading...</div>
@@ -89,6 +31,13 @@ export default function DashboardPage() {
 
   if (!session) {
     return null
+  }
+
+  const displayStats = stats || {
+    openKycCases: 0,
+    pendingRefunds: 0,
+    activeFlags: 0,
+    recentActivity: 0,
   }
 
   return (
@@ -110,22 +59,22 @@ export default function DashboardPage() {
         <div className="stat-grid">
           <StatCard
             label="Open KYC Cases"
-            value={stats.openKycCases.toString()}
+            value={displayStats.openKycCases.toString()}
             Icon={Search}
           />
           <StatCard
             label="Pending Refunds"
-            value={stats.pendingRefunds.toString()}
+            value={displayStats.pendingRefunds.toString()}
             Icon={DollarSign}
           />
           <StatCard
             label="Active Flags"
-            value={stats.activeFlags.toString()}
+            value={displayStats.activeFlags.toString()}
             Icon={Flag}
           />
           <StatCard
             label="Recent Activity"
-            value={stats.recentActivity.toString()}
+            value={displayStats.recentActivity.toString()}
             Icon={Activity}
           />
         </div>

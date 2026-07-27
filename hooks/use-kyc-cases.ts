@@ -120,6 +120,8 @@ export function useKycCases(filters?: KycCaseFilters) {
     queryKey: ['kyc-cases', filters],
     queryFn: () => fetchKycCases(filters),
     enabled: !!session,
+    staleTime: 3 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
   })
 }
 
@@ -142,6 +144,7 @@ export function useKycCaseTransition() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['kyc-cases'] })
       queryClient.invalidateQueries({ queryKey: ['kyc-case', data.id] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
     },
   })
 }

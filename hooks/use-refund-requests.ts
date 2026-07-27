@@ -124,6 +124,8 @@ export function useRefundRequests(filters?: RefundRequestFilters) {
     queryKey: ['refund-requests', filters],
     queryFn: () => fetchRefundRequests(filters),
     enabled: !!session,
+    staleTime: 3 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
   })
 }
 
@@ -146,6 +148,7 @@ export function useRefundTransition() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['refund-requests'] })
       queryClient.invalidateQueries({ queryKey: ['refund-request', data.id] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
     },
   })
 }
@@ -168,9 +171,11 @@ export function useRefundLinkKyc() {
   return useMutation({
     mutationFn: ({ id, kycCaseId }: { id: string; kycCaseId: string }) =>
       linkRefundToKyc(id, kycCaseId),
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['refund-requests'] })
       queryClient.invalidateQueries({ queryKey: ['refund-request', data.id] })
+      queryClient.invalidateQueries({ queryKey: ['kyc-cases'] })
+      queryClient.invalidateQueries({ queryKey: ['kyc-case', variables.kycCaseId] })
     },
   })
 }
