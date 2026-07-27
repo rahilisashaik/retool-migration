@@ -1,6 +1,5 @@
 import { BaseService } from './base.service'
 import { prisma } from '@/lib/prisma'
-import { KycStatus } from '@prisma/client'
 import { parseStartOfDay, parseEndOfDay } from '@/lib/utils'
 
 /**

@@ -48,11 +48,8 @@ export default function DashboardPage() {
         {/* Welcome Section */}
         <div className="page-header">
           <h1 className="welcome-header">
-            Welcome back, {session.user.name}!
+            {session.user.name}
           </h1>
-          <p className="welcome-subtitle">
-            Here's what's happening across the Bread AI platform
-          </p>
         </div>
 
         {/* Stats Cards */}
