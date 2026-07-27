@@ -1,9 +1,6 @@
 import { z } from 'zod'
 import { NextResponse } from 'next/server'
 
-// Import Prisma enums for type-safe validation
-import { UserRole, KycStatus, RefundStatus, Environment, FeatureFlagType, FeatureFlagState, NotificationType } from '@prisma/client'
-
 // Validation error handler
 export function handleValidationError(error: any) {
   if (error instanceof z.ZodError) {
@@ -20,7 +17,7 @@ export function handleValidationError(error: any) {
 
 // KYC validation schemas
 export const kycCaseFilterSchema = z.object({
-  status: z.enum(Object.values(KycStatus) as [string, ...string[]]).optional(),
+  status: z.enum(['PENDING', 'APPROVED', 'REJECTED', 'ESCALATED']).optional(),
   minRiskScore: z.number().optional(),
   maxRiskScore: z.number().optional(),
   assigneeId: z.string().optional(),
@@ -29,7 +26,7 @@ export const kycCaseFilterSchema = z.object({
 })
 
 export const kycCaseTransitionSchema = z.object({
-  status: z.enum(Object.values(KycStatus) as [string, ...string[]]),
+  status: z.enum(['PENDING', 'APPROVED', 'REJECTED', 'ESCALATED']),
   reason: z.string().min(1, 'Reason is required'),
 })
 
@@ -41,7 +38,7 @@ export const kycNoteSchema = z.object({
 export const refundFilterSchema = z.object({
   orderId: z.string().optional(),
   customerId: z.string().optional(),
-  status: z.enum(Object.values(RefundStatus) as [string, ...string[]]).optional(),
+  status: z.enum(['PENDING', 'APPROVED', 'DENIED', 'ON_HOLD', 'PROCESSED']).optional(),
   minAmount: z.number().optional(),
   maxAmount: z.number().optional(),
   currency: z.string().optional(),
@@ -50,7 +47,7 @@ export const refundFilterSchema = z.object({
 })
 
 export const refundTransitionSchema = z.object({
-  status: z.enum(Object.values(RefundStatus) as [string, ...string[]]),
+  status: z.enum(['PENDING', 'APPROVED', 'DENIED', 'ON_HOLD', 'PROCESSED']),
   reason: z.string().min(1, 'Reason is required'),
 })
 
@@ -64,19 +61,19 @@ export const refundNoteSchema = z.object({
 
 // Feature flag validation schemas
 export const featureFlagFilterSchema = z.object({
-  environment: z.enum(Object.values(Environment) as [string, ...string[]]).optional(),
-  state: z.enum(Object.values(FeatureFlagState) as [string, ...string[]]).optional(),
+  environment: z.enum(['PRODUCTION', 'STAGING']).optional(),
+  state: z.enum(['ENABLED', 'DISABLED']).optional(),
   ownerId: z.string().optional(),
-  type: z.enum(Object.values(FeatureFlagType) as [string, ...string[]]).optional(),
+  type: z.enum(['BOOLEAN', 'PERCENTAGE', 'SEGMENT']).optional(),
 })
 
 export const featureFlagCreateSchema = z.object({
   key: z.string().min(1, 'Key is required').regex(/^[a-z0-9_]+$/, 'Key must be lowercase alphanumeric with underscores'),
   name: z.string().min(1, 'Name is required'),
   description: z.string().optional(),
-  environment: z.enum(Object.values(Environment) as [string, ...string[]]),
-  type: z.enum(Object.values(FeatureFlagType) as [string, ...string[]]),
-  state: z.enum(Object.values(FeatureFlagState) as [string, ...string[]]).optional(),
+  environment: z.enum(['PRODUCTION', 'STAGING']),
+  type: z.enum(['BOOLEAN', 'PERCENTAGE', 'SEGMENT']),
+  state: z.enum(['ENABLED', 'DISABLED']).optional(),
   rolloutPercentage: z.number().min(0).max(100).default(0),
   targetSegment: z.string().optional(),
 })
@@ -84,7 +81,7 @@ export const featureFlagCreateSchema = z.object({
 export const featureFlagUpdateSchema = z.object({
   name: z.string().min(1, 'Name is required').optional(),
   description: z.string().optional(),
-  state: z.enum(Object.values(FeatureFlagState) as [string, ...string[]]).optional(),
+  state: z.enum(['ENABLED', 'DISABLED']).optional(),
   rolloutPercentage: z.number().min(0).max(100).optional(),
   targetSegment: z.string().optional(),
   reason: z.string().optional(),
