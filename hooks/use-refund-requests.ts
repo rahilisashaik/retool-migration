@@ -60,7 +60,6 @@ async function fetchRefundRequests(filters?: RefundRequestFilters): Promise<Refu
   if (filters?.toDate) params.append('toDate', filters.toDate)
 
   const response = await fetch(`/api/refunds?${params.toString()}`)
-  console.log("mustard", response)
   if (!response.ok) {
     throw new Error('Failed to fetch refund requests')
   }
@@ -124,6 +123,8 @@ export function useRefundRequests(filters?: RefundRequestFilters) {
     queryKey: ['refund-requests', filters],
     queryFn: () => fetchRefundRequests(filters),
     enabled: !!session,
+    staleTime: 0,
+    gcTime: 15 * 60 * 1000,
   })
 }
 
@@ -134,6 +135,7 @@ export function useRefundRequest(id: string) {
     queryKey: ['refund-request', id],
     queryFn: () => fetchRefundRequest(id),
     enabled: !!session && !!id,
+    staleTime: 0,
   })
 }
 
@@ -146,6 +148,9 @@ export function useRefundTransition() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['refund-requests'] })
       queryClient.invalidateQueries({ queryKey: ['refund-request', data.id] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
+      queryClient.refetchQueries({ queryKey: ['refund-requests'] })
+      queryClient.refetchQueries({ queryKey: ['refund-request', data.id] })
     },
   })
 }
@@ -168,9 +173,11 @@ export function useRefundLinkKyc() {
   return useMutation({
     mutationFn: ({ id, kycCaseId }: { id: string; kycCaseId: string }) =>
       linkRefundToKyc(id, kycCaseId),
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['refund-requests'] })
       queryClient.invalidateQueries({ queryKey: ['refund-request', data.id] })
+      queryClient.invalidateQueries({ queryKey: ['kyc-cases'] })
+      queryClient.invalidateQueries({ queryKey: ['kyc-case', variables.kycCaseId] })
     },
   })
 }

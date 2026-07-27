@@ -120,6 +120,8 @@ export function useKycCases(filters?: KycCaseFilters) {
     queryKey: ['kyc-cases', filters],
     queryFn: () => fetchKycCases(filters),
     enabled: !!session,
+    staleTime: 0,
+    gcTime: 15 * 60 * 1000,
   })
 }
 
@@ -130,6 +132,7 @@ export function useKycCase(id: string) {
     queryKey: ['kyc-case', id],
     queryFn: () => fetchKycCase(id),
     enabled: !!session && !!id,
+    staleTime: 0,
   })
 }
 
@@ -142,6 +145,9 @@ export function useKycCaseTransition() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['kyc-cases'] })
       queryClient.invalidateQueries({ queryKey: ['kyc-case', data.id] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
+      queryClient.refetchQueries({ queryKey: ['kyc-cases'] })
+      queryClient.refetchQueries({ queryKey: ['kyc-case', data.id] })
     },
   })
 }
@@ -154,6 +160,8 @@ export function useKycNote() {
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['kyc-case', variables.id] })
       queryClient.invalidateQueries({ queryKey: ['kyc-cases'] })
+      queryClient.refetchQueries({ queryKey: ['kyc-case', variables.id] })
+      queryClient.refetchQueries({ queryKey: ['kyc-cases'] })
     },
   })
 }

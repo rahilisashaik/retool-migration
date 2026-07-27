@@ -112,6 +112,7 @@ export class KycService extends BaseService {
         resourceType: 'KycCase',
         resourceId: caseId,
         metadata: { noteId: note.id },
+        tx,
       })
 
       return note
@@ -156,6 +157,7 @@ export class KycService extends BaseService {
           newStatus: status,
           reason,
         },
+        tx,
       })
 
       return updatedCase

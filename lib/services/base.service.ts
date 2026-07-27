@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, checkPermission } from '@/lib/auth-helper'
-import { PERMISSIONS } from '@/lib/permissions'
+import { PERMISSIONS, hasPermission } from '@/lib/permissions'
 import { NextResponse } from 'next/server'
 import { handleValidationError } from '@/lib/validations'
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
@@ -21,7 +21,10 @@ export abstract class BaseService {
   /**
    * Check if the current user has the required permission
    */
-  public async authorize(permission: string): Promise<boolean> {
+  public async authorize(permission: string, user?: any): Promise<boolean> {
+    if (user) {
+      return hasPermission(user.role, permission)
+    }
     return await checkPermission(permission)
   }
 
@@ -31,7 +34,7 @@ export abstract class BaseService {
    */
   public async requireAuthAndPermission(permission: string) {
     const user = await this.authenticate()
-    const hasPermission = await this.authorize(permission)
+    const hasPermission = await this.authorize(permission, user)
     
     if (!hasPermission) {
       throw new Error(`Permission denied: ${permission} required`)
@@ -87,7 +90,7 @@ export abstract class BaseService {
 
     // Handle all other errors
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error.message },
       { status: 500 }
     )
   }
@@ -98,7 +101,10 @@ export abstract class BaseService {
   public async transaction<T>(
     callback: (tx: any) => Promise<T>
   ): Promise<T> {
-    return await prisma.$transaction(callback)
+    return await prisma.$transaction(callback, {
+      maxWait: 10000, // Wait up to 10 seconds for a transaction to become available
+      timeout: 10000, // Allow up to 10 seconds for the transaction to complete
+    })
   }
 
   /**
@@ -221,14 +227,17 @@ export abstract class BaseService {
     resourceType,
     resourceId,
     metadata,
+    tx,
   }: {
     actorId: string
     action: string
     resourceType: string
     resourceId: string
     metadata?: any
+    tx?: any
   }) {
-    await prisma.auditEvent.create({
+    const client = tx || prisma
+    await client.auditEvent.create({
       data: {
         actorId,
         action,

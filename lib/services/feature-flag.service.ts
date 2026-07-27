@@ -118,8 +118,8 @@ export class FeatureFlagService extends BaseService {
       throw new Error('Feature flag with this key already exists')
     }
 
-    return this.transaction(async (tx) => {
-      const flag = await tx.featureFlag.create({
+    const flag = await this.transaction(async (tx) => {
+      const newFlag = await tx.featureFlag.create({
         data: {
           ...data,
           state: data.state || 'DISABLED',
@@ -130,7 +130,11 @@ export class FeatureFlagService extends BaseService {
           },
         },
       })
+      return newFlag
+    })
 
+    // Create audit event outside transaction
+    try {
       await this.createAuditEvent({
         actorId: data.ownerId,
         action: 'FEATURE_FLAG_CREATED',
@@ -138,9 +142,12 @@ export class FeatureFlagService extends BaseService {
         resourceId: flag.id,
         metadata: { key: data.key },
       })
+    } catch (auditError) {
+      console.error('Failed to create audit event:', auditError)
+      // Don't fail the operation if audit logging fails
+    }
 
-      return flag
-    })
+    return flag
   }
 
   /**
@@ -184,8 +191,8 @@ export class FeatureFlagService extends BaseService {
       changes.push({ field: 'targetSegment', oldValue: currentFlag.targetSegment, newValue: updates.targetSegment })
     }
 
-    return this.transaction(async (tx) => {
-      const updatedFlag = await tx.featureFlag.update({
+    const updatedFlag = await this.transaction(async (tx) => {
+      const newUpdatedFlag = await tx.featureFlag.update({
         where: { id },
         data: updateData,
         include: {
@@ -209,6 +216,11 @@ export class FeatureFlagService extends BaseService {
         })
       }
 
+      return newUpdatedFlag
+    })
+
+    // Create audit event outside transaction
+    try {
       await this.createAuditEvent({
         actorId,
         action: 'FEATURE_FLAG_UPDATED',
@@ -216,9 +228,11 @@ export class FeatureFlagService extends BaseService {
         resourceId: id,
         metadata: { changes, reason: updates.reason },
       })
+    } catch (auditError) {
+      console.error('Failed to create audit event:', auditError)
+    }
 
-      return updatedFlag
-    })
+    return updatedFlag
   }
 
   /**
@@ -234,11 +248,14 @@ export class FeatureFlagService extends BaseService {
       throw new Error('Not found')
     }
 
-    return this.transaction(async (tx) => {
+    await this.transaction(async (tx) => {
       await tx.featureFlag.delete({
         where: { id },
       })
+    })
 
+    // Create audit event outside transaction
+    try {
       await this.createAuditEvent({
         actorId,
         action: 'FEATURE_FLAG_DELETED',
@@ -246,7 +263,9 @@ export class FeatureFlagService extends BaseService {
         resourceId: id,
         metadata: { key: flag.key },
       })
-    })
+    } catch (auditError) {
+      console.error('Failed to create audit event:', auditError)
+    }
   }
 }
 
