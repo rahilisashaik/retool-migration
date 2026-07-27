@@ -8,8 +8,10 @@ import { FeatureFlagStatusBadge } from '@/components/feature-flags/FeatureFlagSt
 import { FeatureFlagTypeBadge } from '@/components/feature-flags/FeatureFlagTypeBadge'
 import { FeatureFlagEnvironmentBadge } from '@/components/feature-flags/FeatureFlagEnvironmentBadge'
 import { Button, Input, Card, Modal } from '@/components/ui'
+import { BackButton, InfoField } from '@/components/shared'
 import { useFeatureFlag, useFeatureFlagUpdate, useFeatureFlagDelete } from '@/hooks/use-feature-flags'
-import { Settings, User, Calendar, FileText, ArrowLeft, Check, X, AlertTriangle, History, Trash2, Save } from 'lucide-react'
+import { Settings, User, Calendar, FileText, Check, X, AlertTriangle, History, Trash2, Save } from 'lucide-react'
+import { formatDate, formatPercentage } from '@/lib/utils/formatters'
 
 export default function FeatureFlagDetailPage({ params }: { params: { id: string } }) {
   const { data: session } = useSession()
@@ -126,14 +128,7 @@ export default function FeatureFlagDetailPage({ params }: { params: { id: string
       
       <div className="page-content">
         <div className="mb-6">
-          <Button
-            variant="ghost"
-            onClick={() => router.push('/feature-flags')}
-            className="mb-4"
-          >
-            <ArrowLeft size={16} className="mr-2" />
-            Back to Flags
-          </Button>
+          <BackButton href="/feature-flags" label="Back to Flags" />
 
           <div className="flex items-center justify-between">
             <div>
@@ -209,27 +204,21 @@ export default function FeatureFlagDetailPage({ params }: { params: { id: string
                 <label className="block text-sm text-gray-400 mb-2">State</label>
                 <FeatureFlagStatusBadge state={flag.state} />
               </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">Owner</label>
-                <div className="flex items-center gap-2 text-white">
-                  <User size={16} className="text-gray-400" />
-                  <span className="break-all">{flag.owner?.name || 'Unknown'}</span>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">Created</label>
-                <div className="flex items-center gap-2 text-white">
-                  <Calendar size={16} className="text-gray-400" />
-                  <span className="break-all">{new Date(flag.createdAt).toLocaleString()}</span>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">Last Updated</label>
-                <div className="flex items-center gap-2 text-white">
-                  <Calendar size={16} className="text-gray-400" />
-                  <span className="break-all">{new Date(flag.updatedAt).toLocaleString()}</span>
-                </div>
-              </div>
+              <InfoField
+                label="Owner"
+                value={flag.owner?.name || 'Unknown'}
+                icon={User}
+              />
+              <InfoField
+                label="Created"
+                value={formatDate(flag.createdAt)}
+                icon={Calendar}
+              />
+              <InfoField
+                label="Last Updated"
+                value={formatDate(flag.updatedAt)}
+                icon={Calendar}
+              />
             </div>
           </Card>
 
@@ -253,7 +242,7 @@ export default function FeatureFlagDetailPage({ params }: { params: { id: string
               {flag.type === 'PERCENTAGE' && (
                 <div>
                   <label className="block text-sm text-gray-400 mb-2">
-                    Rollout Percentage: {flag.rolloutPercentage}%
+                    Rollout Percentage: {formatPercentage(flag.rolloutPercentage)}
                   </label>
                   <div className="bg-white/5 rounded-lg p-4 border border-white/10">
                     <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
@@ -264,7 +253,7 @@ export default function FeatureFlagDetailPage({ params }: { params: { id: string
                     </div>
                   </div>
                   <p className="text-sm text-gray-500 mt-2">
-                    This flag is enabled for {flag.rolloutPercentage}% of users.
+                    This flag is enabled for {formatPercentage(flag.rolloutPercentage)} of users.
                   </p>
                 </div>
               )}
@@ -303,7 +292,7 @@ export default function FeatureFlagDetailPage({ params }: { params: { id: string
                       <span className="font-medium text-white">{change.actor?.name}</span>
                     </div>
                     <span className="text-sm text-gray-400">
-                      {new Date(change.createdAt).toLocaleString()}
+                      {formatDate(change.createdAt)}
                     </span>
                   </div>
                   <div className="text-sm text-gray-300">
@@ -380,7 +369,7 @@ export default function FeatureFlagDetailPage({ params }: { params: { id: string
           {flag.type === 'PERCENTAGE' && (
             <div>
               <label className="block text-sm text-gray-400 mb-2">
-                Rollout Percentage: {editForm.rolloutPercentage}%
+                Rollout Percentage: {formatPercentage(editForm.rolloutPercentage)}
               </label>
               <input
                 type="range"

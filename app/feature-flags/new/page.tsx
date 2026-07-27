@@ -5,8 +5,10 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Navigation } from '@/components/layout/Navigation'
 import { Button, Input, Card } from '@/components/ui'
+import { BackButton } from '@/components/shared'
 import { useFeatureFlagCreate } from '@/hooks/use-feature-flags'
-import { Settings, ArrowLeft, Save } from 'lucide-react'
+import { Settings, Save } from 'lucide-react'
+import { formatKey, formatPercentage } from '@/lib/utils/formatters'
 
 export default function NewFeatureFlagPage() {
   const { data: session } = useSession()
@@ -46,14 +48,7 @@ export default function NewFeatureFlagPage() {
       
       <div className="page-content">
         <div className="mb-6">
-          <Button
-            variant="ghost"
-            onClick={() => router.push('/feature-flags')}
-            className="mb-4"
-          >
-            <ArrowLeft size={16} className="mr-2" />
-            Back to Flags
-          </Button>
+          <BackButton href="/feature-flags" label="Back to Flags" />
 
           <div className="flex items-center gap-3">
             <Settings size={32} className="text-purple-400" />
@@ -72,7 +67,7 @@ export default function NewFeatureFlagPage() {
               <Input
                 label="Key"
                 value={form.key}
-                onChange={(e) => setForm({ ...form, key: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_') })}
+                onChange={(e) => setForm({ ...form, key: formatKey(e.target.value) })}
                 placeholder="e.g. new_dashboard_ui"
                 required
               />
@@ -126,7 +121,7 @@ export default function NewFeatureFlagPage() {
             {form.type === 'PERCENTAGE' && (
               <div>
                 <label className="block text-sm text-gray-400 mb-2">
-                  Initial Rollout: {form.rolloutPercentage}%
+                  Initial Rollout: {formatPercentage(form.rolloutPercentage)}
                 </label>
                 <input
                   type="range"
