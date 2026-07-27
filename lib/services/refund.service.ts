@@ -1,6 +1,7 @@
 import { BaseService } from './base.service'
 import { prisma } from '@/lib/prisma'
 import { Decimal } from '@prisma/client/runtime/library'
+import { parseStartOfDay, parseEndOfDay } from '@/lib/utils'
 
 /**
  * Refund Service - Handles all refund-related business logic
@@ -34,8 +35,8 @@ export class RefundService extends BaseService {
     if (filters.currency) where.currency = filters.currency
     if (filters.fromDate || filters.toDate) {
       where.createdAt = {}
-      if (filters.fromDate) where.createdAt.gte = new Date(filters.fromDate)
-      if (filters.toDate) where.createdAt.lte = new Date(filters.toDate)
+      if (filters.fromDate) where.createdAt.gte = parseStartOfDay(filters.fromDate)
+      if (filters.toDate) where.createdAt.lte = parseEndOfDay(filters.toDate)
     }
 
     const result = await this.findMany({
