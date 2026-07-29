@@ -1,35 +1,24 @@
 'use client'
 
-import { useState } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
-import { Navigation } from '@/components/layout/Navigation'
 import { KycStatusBadge } from '@/components/kyc/KycStatusBadge'
 import { RiskScoreChip } from '@/components/kyc/RiskScoreChip'
-import { Button, Input, Card, Modal } from '@/components/ui'
-import { BackButton, InfoField, NotesSection } from '@/components/shared'
+import { Button, Card } from '@/components/ui'
+import { DetailPageLayout, InfoField, NotesSection, TransitionModal, LoadingState, ErrorState } from '@/components/shared'
 import { useKycCase, useKycCaseTransition, useKycNote } from '@/hooks/use-kyc-cases'
+import { useTransitionModal } from '@/lib/hooks/use-transition-modal'
 import { User, Calendar, FileText, Check, X, AlertTriangle } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/lib/utils/formatters'
 
 export default function KycCaseDetailPage({ params }: { params: { id: string } }) {
   const { data: session } = useSession()
-  const router = useRouter()
-  const [reason, setReason] = useState('')
-  const [showTransitionModal, setShowTransitionModal] = useState(false)
-  const [transitionStatus, setTransitionStatus] = useState('')
-
   const { data: kycCase, isLoading, error } = useKycCase(params.id)
   const transitionMutation = useKycCaseTransition()
   const noteMutation = useKycNote()
+  const { isOpen, transitionStatus, reason, open, close, updateReason } = useTransitionModal()
 
   if (!session) {
     return null
-  }
-
-  const handleTransition = (status: string) => {
-    setTransitionStatus(status)
-    setShowTransitionModal(true)
   }
 
   const handleConfirmTransition = async () => {
@@ -41,8 +30,7 @@ export default function KycCaseDetailPage({ params }: { params: { id: string } }
         status: transitionStatus,
         reason,
       })
-      setShowTransitionModal(false)
-      setReason('')
+      close()
     } catch (error) {
       console.error('Failed to transition case:', error)
     }
@@ -76,59 +64,28 @@ export default function KycCaseDetailPage({ params }: { params: { id: string } }
   }
 
   if (isLoading) {
-    return (
-      <div className="page-container">
-        <Navigation />
-        <div className="page-content">
-          <div className="text-center py-12 text-gray-400">
-            Loading KYC case...
-          </div>
-        </div>
-      </div>
-    )
+    return <LoadingState message="Loading KYC case..." />
   }
 
   if (error || !kycCase) {
-    return (
-      <div className="page-container">
-        <Navigation />
-        <div className="page-content">
-          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-300">
-            Error loading KYC case. Please try again.
-          </div>
-        </div>
-      </div>
-    )
+    return <ErrorState message="Error loading KYC case. Please try again." />
   }
 
   return (
-    <div className="page-container">
-      <Navigation />
-      
-      <div className="page-content">
-        <div className="mb-6">
-          <BackButton href="/kyc" label="Back to Queue" />
-
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-white">KYC Case Details</h1>
-              <p className="text-gray-400 mt-1">
-                Customer ID: <span className="font-mono">{kycCase.customerId}</span>
-              </p>
-            </div>
-            <div className="flex gap-2">
-              {kycCase.reviewerId !== session.user.id && (
-                <Button
-                  variant="secondary"
-                  onClick={handleAssignToMe}
-                >
-                  Assign to Me
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-
+    <>
+      <DetailPageLayout
+        backHref="/kyc"
+        backLabel="Back to Queue"
+        title="KYC Case Details"
+        subtitle={`Customer ID: ${kycCase.customerId}`}
+        actions={
+          kycCase.reviewerId !== session.user.id && (
+            <Button variant="secondary" onClick={handleAssignToMe}>
+              Assign to Me
+            </Button>
+          )
+        }
+      >
         {/* Case Information */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           <Card className="lg:col-span-2">
@@ -181,7 +138,7 @@ export default function KycCaseDetailPage({ params }: { params: { id: string } }
               <Button
                 variant="primary"
                 className="w-full"
-                onClick={() => handleTransition('APPROVED')}
+                onClick={() => open('APPROVED')}
                 disabled={kycCase.status === 'APPROVED'}
               >
                 <Check size={16} className="mr-2" />
@@ -190,7 +147,7 @@ export default function KycCaseDetailPage({ params }: { params: { id: string } }
               <Button
                 variant="danger"
                 className="w-full"
-                onClick={() => handleTransition('REJECTED')}
+                onClick={() => open('REJECTED')}
                 disabled={kycCase.status === 'REJECTED'}
               >
                 <X size={16} className="mr-2" />
@@ -199,7 +156,7 @@ export default function KycCaseDetailPage({ params }: { params: { id: string } }
               <Button
                 variant="secondary"
                 className="w-full"
-                onClick={() => handleTransition('ESCALATED')}
+                onClick={() => open('ESCALATED')}
                 disabled={kycCase.status === 'ESCALATED'}
               >
                 <AlertTriangle size={16} className="mr-2" />
@@ -241,47 +198,17 @@ export default function KycCaseDetailPage({ params }: { params: { id: string } }
             </div>
           </Card>
         )}
-      </div>
+      </DetailPageLayout>
 
-      {/* Transition Modal */}
-      <Modal
-        isOpen={showTransitionModal}
-        onClose={() => {
-          setShowTransitionModal(false)
-          setReason('')
-        }}
+      <TransitionModal
+        isOpen={isOpen}
+        onClose={close}
+        onConfirm={handleConfirmTransition}
         title={`Confirm ${transitionStatus}`}
-        footer={
-          <>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setShowTransitionModal(false)
-                setReason('')
-              }}
-              disabled={transitionMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              onClick={handleConfirmTransition}
-              disabled={transitionMutation.isPending || !reason.trim()}
-            >
-              {transitionMutation.isPending ? 'Processing...' : 'Confirm'}
-            </Button>
-          </>
-        }
-      >
-        <div className="py-2">
-          <Input
-            label="Reason"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Enter the reason for this action..."
-          />
-        </div>
-      </Modal>
-    </div>
+        reason={reason}
+        onReasonChange={updateReason}
+        isPending={transitionMutation.isPending}
+      />
+    </>
   )
 }
