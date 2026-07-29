@@ -3,35 +3,28 @@
 import { useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { Navigation } from '@/components/layout/Navigation'
 import { RefundStatusBadge } from '@/components/refunds/RefundStatusBadge'
-import { Button, Input, Card, Modal, Select } from '@/components/ui'
-import { BackButton, InfoField, NotesSection } from '@/components/shared'
+import { Button, Input, Card, Modal } from '@/components/ui'
+import { DetailPageLayout, InfoField, NotesSection, TransitionModal, LoadingState, ErrorState } from '@/components/shared'
 import { useRefundRequest, useRefundTransition, useRefundNote, useRefundLinkKyc } from '@/hooks/use-refund-requests'
+import { useTransitionModal } from '@/lib/hooks/use-transition-modal'
+import { useModalState } from '@/lib/hooks/use-modal-state'
 import { DollarSign, User, Calendar, FileText, Check, X, AlertTriangle, Shield, Link } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/lib/utils/formatters'
 
 export default function RefundDetailPage({ params }: { params: { id: string } }) {
   const { data: session } = useSession()
   const router = useRouter()
-  const [reason, setReason] = useState('')
-  const [showTransitionModal, setShowTransitionModal] = useState(false)
-  const [transitionStatus, setTransitionStatus] = useState('')
-  const [showLinkKycModal, setShowLinkKycModal] = useState(false)
-  const [kycCaseId, setKycCaseId] = useState('')
-
   const { data: refund, isLoading, error } = useRefundRequest(params.id)
   const transitionMutation = useRefundTransition()
   const noteMutation = useRefundNote()
   const linkKycMutation = useRefundLinkKyc()
+  const { isOpen: isTransitionOpen, transitionStatus, reason, open: openTransition, close: closeTransition, updateReason } = useTransitionModal()
+  const { isOpen: isLinkKycOpen, open: openLinkKyc, close: closeLinkKyc } = useModalState()
+  const [kycCaseId, setKycCaseId] = useState('')
 
   if (!session) {
     return null
-  }
-
-  const handleTransition = (status: string) => {
-    setTransitionStatus(status)
-    setShowTransitionModal(true)
   }
 
   const handleConfirmTransition = async () => {
@@ -43,8 +36,7 @@ export default function RefundDetailPage({ params }: { params: { id: string } })
         status: transitionStatus,
         reason,
       })
-      setShowTransitionModal(false)
-      setReason('')
+      closeTransition()
       router.push('/refunds')
     } catch (error) {
       console.error('Failed to transition refund:', error)
@@ -72,7 +64,7 @@ export default function RefundDetailPage({ params }: { params: { id: string } })
         id: params.id,
         kycCaseId,
       })
-      setShowLinkKycModal(false)
+      closeLinkKyc()
       setKycCaseId('')
     } catch (error) {
       console.error('Failed to link KYC case:', error)
@@ -80,49 +72,21 @@ export default function RefundDetailPage({ params }: { params: { id: string } })
   }
 
   if (isLoading) {
-    return (
-      <div className="page-container">
-        <Navigation />
-        <div className="page-content">
-          <div className="text-center py-12 text-gray-400">
-            Loading refund request...
-          </div>
-        </div>
-      </div>
-    )
+    return <LoadingState message="Loading refund request..." />
   }
 
   if (error || !refund) {
-    return (
-      <div className="page-container">
-        <Navigation />
-        <div className="page-content">
-          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-300">
-            Error loading refund request. Please try again.
-          </div>
-        </div>
-      </div>
-    )
+    return <ErrorState message="Error loading refund request. Please try again." />
   }
 
   return (
-    <div className="page-container">
-      <Navigation />
-      
-      <div className="page-content">
-        <div className="mb-6">
-          <BackButton href="/refunds" label="Back to Refunds" />
-
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-white">Refund Request Details</h1>
-              <p className="text-gray-400 mt-1">
-                Order ID: <span className="font-mono">{refund.orderId}</span>
-              </p>
-            </div>
-          </div>
-        </div>
-
+    <>
+      <DetailPageLayout
+        backHref="/refunds"
+        backLabel="Back to Refunds"
+        title="Refund Request Details"
+        subtitle={`Order ID: ${refund.orderId}`}
+      >
         {/* Refund Information */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           <Card className="lg:col-span-2">
@@ -185,7 +149,7 @@ export default function RefundDetailPage({ params }: { params: { id: string } })
               <Button
                 variant="primary"
                 className="w-full"
-                onClick={() => handleTransition('APPROVED')}
+                onClick={() => openTransition('APPROVED')}
                 disabled={refund.status === 'APPROVED' || refund.status === 'PROCESSED'}
               >
                 <Check size={16} className="mr-2" />
@@ -194,7 +158,7 @@ export default function RefundDetailPage({ params }: { params: { id: string } })
               <Button
                 variant="danger"
                 className="w-full"
-                onClick={() => handleTransition('DENIED')}
+                onClick={() => openTransition('DENIED')}
                 disabled={refund.status === 'DENIED' || refund.status === 'PROCESSED'}
               >
                 <X size={16} className="mr-2" />
@@ -203,7 +167,7 @@ export default function RefundDetailPage({ params }: { params: { id: string } })
               <Button
                 variant="secondary"
                 className="w-full"
-                onClick={() => handleTransition('ON_HOLD')}
+                onClick={() => openTransition('ON_HOLD')}
                 disabled={refund.status === 'ON_HOLD' || refund.status === 'PROCESSED'}
               >
                 <AlertTriangle size={16} className="mr-2" />
@@ -212,7 +176,7 @@ export default function RefundDetailPage({ params }: { params: { id: string } })
               <Button
                 variant="secondary"
                 className="w-full"
-                onClick={() => setShowLinkKycModal(true)}
+                onClick={openLinkKyc}
                 disabled={!!refund.kycCaseId}
               >
                 <Link size={16} className="mr-2" />
@@ -228,64 +192,27 @@ export default function RefundDetailPage({ params }: { params: { id: string } })
           onAddNote={handleAddNote}
           isAdding={noteMutation.isPending}
         />
-      </div>
+      </DetailPageLayout>
 
-      {/* Transition Modal */}
-      <Modal
-        isOpen={showTransitionModal}
-        onClose={() => {
-          setShowTransitionModal(false)
-          setReason('')
-        }}
+      <TransitionModal
+        isOpen={isTransitionOpen}
+        onClose={closeTransition}
+        onConfirm={handleConfirmTransition}
         title={`Confirm ${transitionStatus}`}
-        footer={
-          <>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setShowTransitionModal(false)
-                setReason('')
-              }}
-              disabled={transitionMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              onClick={handleConfirmTransition}
-              disabled={transitionMutation.isPending || !reason.trim()}
-            >
-              {transitionMutation.isPending ? 'Processing...' : 'Confirm'}
-            </Button>
-          </>
-        }
-      >
-        <div className="py-2">
-          <Input
-            label="Reason"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Enter the reason for this action..."
-          />
-        </div>
-      </Modal>
+        reason={reason}
+        onReasonChange={updateReason}
+        isPending={transitionMutation.isPending}
+      />
 
-      {/* Link KYC Modal */}
       <Modal
-        isOpen={showLinkKycModal}
-        onClose={() => {
-          setShowLinkKycModal(false)
-          setKycCaseId('')
-        }}
+        isOpen={isLinkKycOpen}
+        onClose={closeLinkKyc}
         title="Link to KYC Case"
         footer={
           <>
             <Button
               variant="secondary"
-              onClick={() => {
-                setShowLinkKycModal(false)
-                setKycCaseId('')
-              }}
+              onClick={closeLinkKyc}
               disabled={linkKycMutation.isPending}
             >
               Cancel
@@ -309,6 +236,6 @@ export default function RefundDetailPage({ params }: { params: { id: string } })
           />
         </div>
       </Modal>
-    </div>
+    </>
   )
 }
