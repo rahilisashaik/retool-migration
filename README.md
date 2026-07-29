@@ -1,4 +1,4 @@
-# Retool Migration
+# Retool Internal Engineering Platform
 
 A unified internal engineering platform that consolidates 3 Retool apps (KYC review queue, refunds dashboard, and feature flag admin panel) into a single production-style web application. The platform includes shared authentication, shared components, and clean architecture with cross-domain context to reduce cost, centralize ownership, and enable AI-powered workflows.
 
